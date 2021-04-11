@@ -1,0 +1,318 @@
+---
+title: "R_For_Data_Science"
+author: "Maximilian Greil"
+date: "11 4 2021"
+output:
+  html_document:
+    toc: true
+    theme: journal
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load libraries
+
+```{r}
+library(tidyverse)
+library(downloader)
+library(plotly)
+library(car)
+library(dunn.test)
+library(broom)
+```
+
+## 1) Read in the <code>gapminder_clean.csv</code> data as a <code>tibble</code> using <code>read_csv</code>
+
+Download gapminder_clean.csv from Github/Bioinformatics-Research-Network
+
+```{r}
+
+url <- "https://raw.githubusercontent.com/Bioinformatics-Research-Network/training-requirements/main/R%20for%20Data%20Science/gapminder_clean.csv"
+filename <- basename(url)
+if(!file.exists(filename)) download(url, destfile=filename)
+```
+
+Read in gapminder_clean.csv as a tibble using read_csv
+
+```{r}
+dat <- read.csv(filename)
+dim(dat)
+```
+
+The gapminder data consists of a matrix with 2607 rows and 20 columns.
+
+## 2) Filter the data to include only rows where Year is <code>1962</code> and then make a scatter plot comparing <code>'CO2 emissions (metric tons per capita)'</code> and <code>gdpPercap</code> for the filtered data
+
+```{r}
+dat %>% 
+  filter(Year == 1962) %>%
+  # keep only relevant columns
+  transmute(gdpPercap=gdpPercap,CO2.emissions..metric.tons.per.capita.= CO2.emissions..metric.tons.per.capita.) %>%
+  # remove rows which contain NAs
+  drop_na() %>%
+  ggplot(aes(x = gdpPercap, y = CO2.emissions..metric.tons.per.capita.)) +
+  geom_point() +
+  ylab("CO2 emissions (metric tons per capita)")
+
+# Because of one very large outlier the analysis repreated with log transformed data
+
+dat %>% 
+  filter(Year == 1962) %>%
+  # remove rows which contain NAs
+  filter_at(vars(CO2.emissions..metric.tons.per.capita., gdpPercap), all_vars(!is.na(.))) %>%
+  ggplot(aes(x = log(gdpPercap), y = log(CO2.emissions..metric.tons.per.capita.))) +
+  geom_point() +
+  ylab("log(CO2 emissions (metric tons per capita))")
+```
+
+Log transformed data can be used to make data as “normal” as possible so that the statistical analysis results become more valid.
+
+## 3) On the filtered data, calculate the pearson correlation of <code>'CO2 emissions (metric tons per capita)'</code> and <code>gdpPercap</code>. What is the Pearson R value and associated p value?
+
+```{r}
+dat %>% 
+  filter(Year == 1962) %>%
+  # remove rows which contain NAs
+  filter_at(vars(CO2.emissions..metric.tons.per.capita., gdpPercap), all_vars(!is.na(.))) %>%
+  pivot_longer( gdpPercap, names_to = "x_var", values_to = "x_val") %>%
+  pivot_longer( CO2.emissions..metric.tons.per.capita., names_to = "y_var", values_to = "y_val") %>%
+  group_by(x_var, y_var) %>%
+   summarise(cor_coef = cor.test(x_val, y_val)$estimate,
+            p_val = cor.test(x_val, y_val)$p.value)
+```
+
+The Pearson R value of 'CO2 emissions (metric tons per capita)' and gdpPercap in Year 1962 is 0.9260817 and the associated p value is 1.128679e-46.
+
+```{r}
+# Because of one very large outlier the analysis repreated with log transformed data
+
+dat %>% 
+  filter(Year == 1962) %>%
+  # remove rows which contain NAs
+  filter_at(vars(CO2.emissions..metric.tons.per.capita., gdpPercap), all_vars(!is.na(.))) %>%
+  pivot_longer( gdpPercap, names_to = "x_var", values_to = "x_val") %>%
+  pivot_longer( CO2.emissions..metric.tons.per.capita., names_to = "y_var", values_to = "y_val") %>%
+  group_by(x_var, y_var) %>%
+  # calculate pearson R value and associated p value
+  summarise(cor_coef = cor.test(log(x_val), log(y_val))$estimate,
+            p_val = cor.test(log(x_val), log(y_val))$p.value)
+```
+
+The Pearson R value of log transformed 'CO2 emissions (metric tons per capita)' and gdpPercap in Year 1962 is 0.8602081 and the associated p value is 8.903567e-33.\
+
+## 4) On the unfiltered data, answer "In what year is the correlation between <code>'CO2 emissions (metric tons per capita)'</code> and <code>gdpPercap</code> the strongest?" Filter the dataset to that year for the next step...
+
+```{r}
+year.cor.max <- dat %>%
+  # remove rows which contain NAs
+  filter_at(vars(CO2.emissions..metric.tons.per.capita., gdpPercap), all_vars(!is.na(.))) %>%
+  # split origial tibble in lists depending on the year
+  split(.$Year) %>%
+  # perform pearson correlation test on each year list, keep only the pearson R value
+  map(~cor.test(log(.$CO2.emissions..metric.tons.per.capita.), log(.$gdpPercap))$estimate) %>% 
+  # merge list of lists to one final list
+  unlist
+
+year.cor.max
+
+year.cor.max[which.max(year.cor.max)]
+```
+
+In year 2002 is the correlation between 'CO2 emissions (metric tons per capita)' and gdpPercap the strongest.
+
+## 5) Using <code>plotly</code>, create an interactive scatter plot comparing <code>'CO2 emissions (metric tons per capita)'</code> and <code>gdpPercap</code>, where the point size is determined by <code>pop</code> (population) and the color is determined by the <code>continent</code>. You can easily convert any <code>ggplot</code> plot to a <code>plotly</code> plot using the <code>ggplotly()</code> command.
+
+```{r}
+viz <- dat %>% 
+    filter(Year == 2002) %>%
+    # remove rows which contain NAs
+    filter_at(vars(gdpPercap, CO2.emissions..metric.tons.per.capita.), all_vars(!is.na(.))) %>%
+    ggplot(aes(x = log(gdpPercap), y = log(CO2.emissions..metric.tons.per.capita.), text=paste0('</br>log(gdpPercap): ', gdpPercap, '</br>log(CO2 emissions (metric tons per capita)): ', CO2.emissions..metric.tons.per.capita., '</br>population: ', pop, '</br>continent: ', continent, '</br>Country Name: ', Country.Name))) +
+    geom_point(aes(size = pop, color = continent)) +
+    ylab("log(CO2 emissions (metric tons per capita))")
+  
+ggplotly(viz, tooltip = c("text"))
+```
+
+## 6) What is the relationship between <code>continent</code> and <code>'Energy use (kg of oil equivalent per capita)'</code>?
+
+We choose a suitable test based on the 'Flow Chart for Selecting Commonly Used Statistical Tests'. We have continuous data and want to check for differences in mean for more than two groups.\ 
+
+Therefore, we have to check if the parametric assumptions are satisfied. For ANOVA, we have four parametric assumptions that must be met:
+
+- Samples must be independent
+- Population variances must be equal (Levene’s test)
+- The population must be close to a normal distribution (Shapiro-Wilk normality test)
+- Groups must have equal sample sizes
+
+### 6.1) Samples must be independent
+
+```{r}
+dat %>%
+  filter(continent != "") %>%
+  # remove rows which contain NAs
+  filter_at(vars(Energy.use..kg.of.oil.equivalent.per.capita.), all_vars(!is.na(.))) %>%
+  ggplot(aes(x=continent, y=Energy.use..kg.of.oil.equivalent.per.capita., fill = continent)) +
+  geom_boxplot() +
+  ylab("Energy use (kg of oil equivalent per capita)")
+```
+
+First, exploratory data analysis (EDA) was performed on the log transformed data. We can say that the samples are independent.
+
+### 6.2) Population variances must be equal (Levene’s test)
+
+```{r}
+dat %>%
+  filter(continent != "") %>%
+  # remove rows which contain NAs
+  filter_at(vars(Energy.use..kg.of.oil.equivalent.per.capita.), all_vars(!is.na(.))) %>%
+  # perform Levene’s test
+  do(tidy(leveneTest(.$Energy.use..kg.of.oil.equivalent.per.capita.~.$continent, data = .)))
+```
+
+We reject the H0 hypothesis that the variances are equal based on the p value of our Levene’s test. Therefore, we can not use an ANOVA test and must use a Kruskal-Wallis test instead.
+
+### 6.3) Kruskal-Wallis test
+
+```{r}
+dat %>%
+  filter(continent != "") %>%
+  # remove rows which contain NAs
+  filter_at(vars(Energy.use..kg.of.oil.equivalent.per.capita.), all_vars(!is.na(.))) %>%
+  # perform Kruskal-Wallis test
+  do(tidy(kruskal.test(.$Energy.use..kg.of.oil.equivalent.per.capita.~.$continent, data = .)))
+```  
+
+The resulting p value of our Kruskal-Wallis test shows that there is a significant difference in the mean for our data. Because of our significant result, we additionally perform a dunn's test.
+
+```{r}
+dat6 <- dat %>%
+  filter(continent != "") %>%
+  # remove rows which contain NAs
+  filter_at(vars(Energy.use..kg.of.oil.equivalent.per.capita.), all_vars(!is.na(.)))
+
+# perform dunn's test
+dunn.test(dat6$Energy.use..kg.of.oil.equivalent.per.capita., g=dat6$continent)
+```  
+
+## 7) Is there a significant difference between Europe and Asia with respect to <code>'Imports of goods and services (% of GDP)'</code> in the years after 1990?
+
+Again, we choose a suitable test based on the 'Flow Chart for Selecting Commonly Used Statistical Tests'. We have continuous data and want to check for differences in mean for two groups.\ 
+
+Therefore, we have to check if the parametric assumptions are satisfied. For Student's unpaired t-test, we have four parametric assumptions that must be met:
+
+- The observations are sampled independently
+- The dependent variable is measured on an incremental level, such as ratios or intervals.
+- The independent variables must consist of two related groups or matched pairs.
+- The dependent variable is normally distributed (Shapiro-Wilk normality test)
+
+### 7.1) The observations are sampled independently
+
+```{r}
+dat %>%
+  filter(Year > 1990 & (continent == "Europe" | continent == "Asia")) %>%
+  # remove rows which contain NAs
+  filter_at(vars(Imports.of.goods.and.services....of.GDP.), all_vars(!is.na(.))) %>%
+  ggplot(aes(x=continent, y=Imports.of.goods.and.services....of.GDP., fill = continent)) +
+  geom_boxplot() +
+  ylab("Imports of goods and services (% of GDP)")
+```
+
+First, exploratory data analysis (EDA) was performed on the log transformed data. We can say that the samples are independent. We can also say that the dependent variable is measured on the incremental level year and that independent variables consist of matched pairs.
+
+### 7.2) The dependent variable is normally distributed (Shapiro-Wilk normality test)
+
+```{r}
+dat %>%
+  filter(Year > 1990 & (continent == "Europe" | continent == "Asia")) %>%
+  # remove rows which contain NAs
+  filter_at(vars(Imports.of.goods.and.services....of.GDP.), all_vars(!is.na(.))) %>%
+  # perform Shapiro-Wilk normality test
+  do(tidy(shapiro.test(.$Imports.of.goods.and.services....of.GDP.)))
+```
+
+We reject the H0 hypothesis that the data is normally distributed based on the p values of our Shapiro-Wilk normality test. Therefore, we can not use a Student's unpaired t-test and must use a Wilcoxon Rank sums test instead.
+
+### 7.3) Wilcoxon Rank sums test
+
+```{r}
+dat %>%
+  filter(Year > 1990 & (continent == "Europe" | continent == "Asia")) %>%
+  # remove rows which contain NAs
+  filter_at(vars(Imports.of.goods.and.services....of.GDP.), all_vars(!is.na(.))) %>%
+  # perform Wilcoxon Rank sums test
+  do(tidy(wilcox.test(.$Imports.of.goods.and.services....of.GDP.~.$continent)))
+```
+
+We reject the H0 hypothesis that there is a significant difference between Europe and Asia with respect to 'Imports of goods and services (% of GDP)' in the years after 1990 based on the p values of our Wilcoxon Rank sums test.
+
+## 8) What is the country (or countries) that has the highest <code>'Population density (people per sq. km of land area)'</code> across all years? (i.e., which country has the highest average ranking in this category across each time point in the dataset?)
+
+First, exploratory data analysis (EDA) was performed on the log transformed data.
+
+```{r}
+viz <- dat %>%
+  # remove rows which contain NAs
+  filter_at(vars(Year, Country.Name, Population.density..people.per.sq..km.of.land.area.), all_vars(!is.na(.))) %>%
+  ggplot(aes(x=Year, y=Population.density..people.per.sq..km.of.land.area., group = Country.Name)) + 
+  geom_line() + 
+  ylab("Population density (people per sq. km of land area)")
+
+ggplotly(viz)
+```
+
+```{r}
+highest.number <- dat %>%
+  # remove rows which contain NAs
+  filter_at(vars(Year, Country.Name, Population.density..people.per.sq..km.of.land.area.), all_vars(!is.na(.))) %>%
+  # split origial tibble in lists depending on the year
+  split(.$Year) %>%
+  # get maximum of variable in every year
+  map(~max(.$Population.density..people.per.sq..km.of.land.area.)) %>%
+  # merge list of lists into one list
+  unlist
+
+# map highest scoring variable from every year to respective country
+highest.ranked.countries <- data.frame(lapply(highest.number, function(x) droplevels(dat$Country.Name[which(dat$Population.density..people.per.sq..km.of.land.area. == x)])), stringsAsFactors=FALSE)
+
+# count occurences of highest scoring countries
+apply(highest.ranked.countries, MARGIN=1, table)
+```
+
+The countries that have the highest 'Population density (people per sq. km of land area)' across all years are Macao SAR and Monaco.
+
+## 9) What country (or countries) has shown the greatest increase in <code>'Life expectancy at birth, total (years)'</code> since 1962?
+
+First, exploratory data analysis (EDA) was performed on the log transformed data.
+
+```{r}
+viz <- dat %>%
+  # remove rows which contain NAs
+  filter_at(vars(Year, Country.Name, Life.expectancy.at.birth..total..years.), all_vars(!is.na(.))) %>%
+  ggplot(aes(x=Year, y=Life.expectancy.at.birth..total..years., group = Country.Name)) + 
+  geom_line() + 
+  ylab("Life expectancy at birth, total (years)")
+
+ggplotly(viz)
+```
+
+Get difference for Life expectancy at birth, total (years) for every country between 1962 and 2007.
+
+```{r}
+dat %>%
+  filter(Year == 1962 | Year == 2007) %>%
+  # remove rows which contain NAs
+  filter_at(vars(Year, Country.Name, Life.expectancy.at.birth..total..years.), all_vars(!is.na(.))) %>%
+  group_by(Country.Name) %>%
+  # Calculate difference between 1962 and 2007
+  mutate(diff = Life.expectancy.at.birth..total..years. - lag(Life.expectancy.at.birth..total..years., default = 0)) %>% 
+  select(Country.Name, diff) %>%
+  # keep only rows with calculated difference
+  filter(row_number() %% 2 == 0) %>%
+  # sort by difference
+  arrange(desc(diff))
+```
+
+Country Maldives has shown the greatest increase in 'Life expectancy at birth, total (years)' since 1962.
