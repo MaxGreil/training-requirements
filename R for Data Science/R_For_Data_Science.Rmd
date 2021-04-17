@@ -15,12 +15,12 @@ knitr::opts_chunk$set(echo = TRUE)
 Load libraries
 
 ```{r}
-library(tidyverse)
-library(downloader)
-library(plotly)
-library(car)
-library(dunn.test)
-library(broom)
+suppressMessages(library(tidyverse))
+suppressMessages(library(downloader))
+suppressMessages(library(plotly))
+suppressMessages(library(car))
+suppressMessages(library(dunn.test))
+suppressMessages(library(broom))
 ```
 
 ## 1) Read in the <code>gapminder_clean.csv</code> data as a <code>tibble</code> using <code>read_csv</code>
@@ -48,10 +48,8 @@ The gapminder data consists of a matrix with 2607 rows and 20 columns.
 ```{r}
 dat %>% 
   filter(Year == 1962) %>%
-  # keep only relevant columns
-  transmute(gdpPercap=gdpPercap,CO2.emissions..metric.tons.per.capita.= CO2.emissions..metric.tons.per.capita.) %>%
   # remove rows which contain NAs
-  drop_na() %>%
+  filter_at(vars(CO2.emissions..metric.tons.per.capita., gdpPercap), all_vars(!is.na(.))) %>%
   ggplot(aes(x = gdpPercap, y = CO2.emissions..metric.tons.per.capita.)) +
   geom_point() +
   ylab("CO2 emissions (metric tons per capita)")
