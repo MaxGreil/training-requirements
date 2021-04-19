@@ -70,7 +70,7 @@ player_move <- function() {
     if(!is.element('-1', numbers) && check_player_move_board(numbers[1], numbers[2])) {
       cat(paste0("Place '", symbol, "' at row ", numbers[1], " column ", numbers[2], " ? [y/n] "))
       confirmation <- check_player_confirmation()
-      if(confirmation == "y") {
+      if(confirmation == "y" || confirmation == '') {
         cat("\nMove registered!\n")
         board[strtoi(numbers[1]), strtoi(numbers[2])] = symbol
         check <- FALSE
@@ -112,10 +112,15 @@ check_player_confirmation <- function() {
       con <- "stdin"
     }
     player_confirmation <- readLines(con = con, n = 1)
-    if(player_confirmation != "y" && player_confirmation != "n") {
-      cat(paste0("Incorrect input! Please choose between 'y' and 'n'.\n"))
-    } else {
+    if(player_confirmation == '') {
       check <- FALSE
+    }
+    if(check) {
+      if(player_confirmation != "y" && player_confirmation != "n") {
+        cat(paste0("Incorrect input! Please choose between 'y' and 'n'.\n"))
+      } else {
+        check <- FALSE
+      }
     }
   }
   return(player_confirmation)

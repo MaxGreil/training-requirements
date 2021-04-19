@@ -25,19 +25,10 @@ suppressMessages(library(broom))
 
 ## 1) Read in the <code>gapminder_clean.csv</code> data as a <code>tibble</code> using <code>read_csv</code>
 
-Download gapminder_clean.csv from Github/Bioinformatics-Research-Network
-
-```{r}
-
-url <- "https://raw.githubusercontent.com/Bioinformatics-Research-Network/training-requirements/main/R%20for%20Data%20Science/gapminder_clean.csv"
-filename <- basename(url)
-if(!file.exists(filename)) download(url, destfile=filename)
-```
-
 Read in gapminder_clean.csv as a tibble using read_csv
 
 ```{r}
-dat <- read.csv(filename)
+dat <- read.csv('gapminder_clean.csv') %>% as_tibble
 dim(dat)
 ```
 
