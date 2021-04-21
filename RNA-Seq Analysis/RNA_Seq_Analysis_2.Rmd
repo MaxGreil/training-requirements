@@ -14,9 +14,9 @@ knitr::opts_chunk$set(message = FALSE)
 knitr::opts_chunk$set(warning = FALSE)
 ```
 
-## R Markdown
-
 ```{r}
+# Load libraries
+
 #suppressMessages(library(recount))
 suppressMessages(library(DT))
 suppressMessages(library(DESeq2))

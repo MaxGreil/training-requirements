@@ -1,0 +1,29 @@
+---
+title: "ChIP_Seq_Analysis"
+author: "Maximilian Greil"
+date: "21 4 2021"
+output:
+  html_document:
+    toc: TRUE
+    theme: journal
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(message = FALSE)
+knitr::opts_chunk$set(warning = FALSE)
+```
+
+```{r}
+suppressMessages(library(ChIPpeakAnno))
+```
+
+## 1) Make a venn diagram comparing the overlap of binding sites for your two ChIP-Seq datasets
+
+## 2) Make a metaplot of your two datasets around the TSS.
+
+## 3) Annotate the peaks for genomic features such as intron, exon, 3’UTR, etc and compare the annotations between your two datasets.
+
+## 4) Assign peaks to genes – then perform pathway enrichment.
+
+## 5) What genes and pathways/genesets shared between these datasets? What pathways differ? What is your interpretation of these results? What future directions could you propose to follow up on these findings? (No right answers to these questions, just important to think through this part).
