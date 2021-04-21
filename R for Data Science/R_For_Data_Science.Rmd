@@ -4,7 +4,8 @@ author: "Maximilian Greil"
 date: "11 4 2021"
 output:
   html_document:
-    toc: true
+    toc: TRUE
+    toc_float: TRUE
     theme: journal
 ---
 
@@ -127,7 +128,7 @@ ggplotly(viz, tooltip = c("text"))
 
 ## 6) What is the relationship between <code>continent</code> and <code>'Energy use (kg of oil equivalent per capita)'</code>?
 
-We choose a suitable test based on the 'Flow Chart for Selecting Commonly Used Statistical Tests'. We have continuous data and want to check for differences in mean for more than two groups.\ 
+First we must choose a suitable statistical test. We have continuous data and want to check for differences in mean for more than two groups.\ 
 
 Therefore, we have to check if the parametric assumptions are satisfied. For ANOVA, we have four parametric assumptions that must be met:
 
@@ -148,7 +149,7 @@ dat %>%
   ylab("Energy use (kg of oil equivalent per capita)")
 ```
 
-First, exploratory data analysis (EDA) was performed on the log transformed data. We can say that the samples are independent.
+First, exploratory data analysis (EDA) was performed on the data. We can say that the samples are independent.
 
 ### 6.2) Population variances must be equal (Levene’s test)
 
@@ -188,7 +189,7 @@ dunn.test(dat6$Energy.use..kg.of.oil.equivalent.per.capita., g=dat6$continent)
 
 ## 7) Is there a significant difference between Europe and Asia with respect to <code>'Imports of goods and services (% of GDP)'</code> in the years after 1990?
 
-Again, we choose a suitable test based on the 'Flow Chart for Selecting Commonly Used Statistical Tests'. We have continuous data and want to check for differences in mean for two groups.\ 
+Again, we must choose a suitable test first. We have continuous data and want to check for differences in mean for two groups.\ 
 
 Therefore, we have to check if the parametric assumptions are satisfied. For Student's unpaired t-test, we have four parametric assumptions that must be met:
 
@@ -209,7 +210,7 @@ dat %>%
   ylab("Imports of goods and services (% of GDP)")
 ```
 
-First, exploratory data analysis (EDA) was performed on the log transformed data. We can say that the samples are independent. We can also say that the dependent variable is measured on the incremental level year and that independent variables consist of matched pairs.
+First, exploratory data analysis (EDA) was performed on the data. We can say that the samples are independent. We can also say that the dependent variable is measured on the incremental level year and that independent variables consist of matched pairs.
 
 ### 7.2) The dependent variable is normally distributed (Shapiro-Wilk normality test)
 
@@ -239,7 +240,7 @@ We reject the H0 hypothesis that there is a significant difference between Europ
 
 ## 8) What is the country (or countries) that has the highest <code>'Population density (people per sq. km of land area)'</code> across all years? (i.e., which country has the highest average ranking in this category across each time point in the dataset?)
 
-First, exploratory data analysis (EDA) was performed on the log transformed data.
+First, exploratory data analysis (EDA) was performed on the data.
 
 ```{r}
 viz <- dat %>%
@@ -264,7 +265,7 @@ highest.number <- dat %>%
   unlist
 
 # map highest scoring variable from every year to respective country
-highest.ranked.countries <- data.frame(lapply(highest.number, function(x) droplevels(dat$Country.Name[which(dat$Population.density..people.per.sq..km.of.land.area. == x)])), stringsAsFactors=FALSE)
+highest.ranked.countries <- data.frame(lapply(highest.number, function(x) dat$Country.Name[which(dat$Population.density..people.per.sq..km.of.land.area. == x)]), stringsAsFactors=FALSE)
 
 # count occurences of highest scoring countries
 apply(highest.ranked.countries, MARGIN=1, table)
@@ -274,7 +275,7 @@ The countries that have the highest 'Population density (people per sq. km of la
 
 ## 9) What country (or countries) has shown the greatest increase in <code>'Life expectancy at birth, total (years)'</code> since 1962?
 
-First, exploratory data analysis (EDA) was performed on the log transformed data.
+First, exploratory data analysis (EDA) was performed on the data.
 
 ```{r}
 viz <- dat %>%
@@ -287,7 +288,7 @@ viz <- dat %>%
 ggplotly(viz)
 ```
 
-Get difference for Life expectancy at birth, total (years) for every country between 1962 and 2007.
+To get the difference for Life expectancy at birth, total (years) for every country between 1962 and 2007 we subtract the value from 2007 minus the value from 1962.
 
 ```{r}
 dat %>%
