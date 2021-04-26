@@ -80,6 +80,20 @@ player_move <- function() {
   return(board)
 }
 
+# Check player number input
+check_player_input_number <- function(row_number, col_number) {
+  check <- TRUE
+  if(row_number != 1 & row_number != 2 & row_number != 3) {
+    cat(paste0(row_number, " is not a valid number for row!\n"))
+    check <- FALSE
+  }
+  if(col_number != 1 & col_number != 2 & col_number != 3) {
+    cat(paste0(col_number, " is not a valid number for column!\n"))
+    check <- FALSE
+  }
+  return(check)
+}
+
 # Check if player move possible
 check_player_input <- function() {
   if (interactive()) {
@@ -91,12 +105,9 @@ check_player_input <- function() {
   row_number <- readLines(con = con, n = 1)
   cat("What column? ")
   col_number <- readLines(con = con, n = 1)
-  if(row_number < 1 || row_number > 3) {
+  if(!check_player_input_number(row_number, col_number)) {
     cat("Invalid selection. Choose 1, 2 or 3 for row and column.\n")
     row_number <- -1
-  }
-  if(col_number < 1 || col_number > 3) {
-    cat("Invalid selection. Choose 1, 2 or 3 for row and column.\n")
     col_number <- -1
   }
   return(c(row_number, col_number))
@@ -112,6 +123,7 @@ check_player_confirmation <- function() {
       con <- "stdin"
     }
     player_confirmation <- readLines(con = con, n = 1)
+    # Enter key is also correct input 
     if(player_confirmation == '') {
       check <- FALSE
     }

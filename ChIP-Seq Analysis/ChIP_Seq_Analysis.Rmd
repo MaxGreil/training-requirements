@@ -4,7 +4,6 @@ author: "Maximilian Greil"
 date: "21 4 2021"
 output:
   html_document:
-    toc: TRUE
     theme: journal
 ---
 
@@ -15,15 +14,232 @@ knitr::opts_chunk$set(warning = FALSE)
 ```
 
 ```{r}
+suppressMessages(library(UpSetR))
 suppressMessages(library(ChIPpeakAnno))
+suppressMessages(library(TxDb.Hsapiens.UCSC.hg38.knownGene))
+suppressMessages(library(org.Hs.eg.db))
+suppressMessages(library(clusterProfiler))
+suppressMessages(library(ChIPseeker))
+suppressMessages(library(DT))
+suppressMessages(library(annotables))
+suppressMessages(library(tidyverse))
 ```
 
-## 1) Make a venn diagram comparing the overlap of binding sites for your two ChIP-Seq datasets
+## 0) Load data
 
-## 2) Make a metaplot of your two datasets around the TSS.
+In this ChIP-Seq analysis the goal was analyze two ChIP-Seq data sets and compare the results. If two ChIP-Seq data, obtained by two different binding proteins, overlap significantly, these two proteins may form a complex or have interaction in regulation chromosome remodelling or gene expression.
 
-## 3) Annotate the peaks for genomic features such as intron, exon, 3’UTR, etc and compare the annotations between your two datasets.
+The two data sets analyzed were downloaded from [ENCODE](https://www.encodeproject.org/) and consist of `PRMD1` ([data set](https://www.encodeproject.org/experiments/ENCSR977FEF/) -- [peaks](https://www.encodeproject.org/files/ENCFF719BHI/)) and `ZNF414` ([data set](https://www.encodeproject.org/experiments/ENCSR224NQI/) -- [peaks](https://www.encodeproject.org/files/ENCFF409BJK/)).\ 
+
+Both peaks for `PRMD1` and `ZNF414` were downloaded in `bed narrowPeak` format and read-in using R package `ChIPseeker` function `readPeakFile` for further analysis.\
+
+Both peak files contained `IDR thresholded peaks` and used genome assembly `GRCh38`.
+
+## 1) Venn diagram comparing the overlap of binding sites between PRDM1 and ZNF414
+
+Both `PRMD1` and `ZNF414` showed a large number of peaks. The overlap between the two showed 2106 peaks.
+
+```{r, results='hide'}
+txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
+
+# ChIPseeker provides readPeakFile to load the peak and store in GRanges object
+PRDM1 <- readPeakFile("PRDM1.bed")
+ZNF414 <- readPeakFile("ZNF414.bed")
+
+# Visualize the overlapping using function makeVennDiagram from ChIPpeakAnno
+ol <- findOverlapsOfPeaks(PRDM1, ZNF414)
+makeVennDiagram(ol, fill=c("#009E73", "#F0E442"), # circle fill color
+                col=c("#D55E00", "#0072B2"), #circle border color
+                cat.col=c("#D55E00", "#0072B2")) # label color, keep same as circle border color
+```
+
+## 2) Metaplot of PRDM1 and ZNF414 around the transcription start sites (TSS)
+
+### 2.1) Heatmap of ChIP binding to TSS regions
+
+First, for calculating the profile of ChIP peaks binding to TSS regions, we prepared the TSS regions, which are defined as the flanking sequence of the TSS sites. Therefore, we aligned the peaks that mapped to these regions.
+
+```{r}
+promoter <- getPromoters(TxDb=txdb, upstream=3000, downstream=3000)
+
+tagMatrix_PRDM1 <- getTagMatrix(PRDM1, windows=promoter)
+tagMatrix_ZNF414 <- getTagMatrix(ZNF414, windows=promoter)
+
+tagHeatmap(list(PRDM1=tagMatrix_PRDM1, ZNF414=tagMatrix_ZNF414), xlim=c(-3000, 3000), color="red")
+```
+
+### 2.2) Average Profile of ChIP peaks binding to TSS region
+
+```{r}
+plotAvgProf(list(PRDM1=tagMatrix_PRDM1, ZNF414=tagMatrix_ZNF414), xlim=c(-3000, 3000),
+            xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency")
+```
+
+### 2.3) Plot distribution of the distance of overlapped peaks between PRDM1 and ZNF414 to TSS
+
+```{r}
+# Annotation data should be an object of GRanges.
+annoData <- toGRanges(txdb, feature="gene")
+
+# Plot distribution of the distance of overlapped peaks to transcription start sites (TSS)
+overlaps <- ol$peaklist[["PRDM1///ZNF414"]]
+
+binOverFeature(overlaps, annotationData=annoData,
+               radius=3000, FUN=length, errFun=0,
+               xlab="distance from TSS (bp)", ylab="count", 
+               main="Distribution of aggregated peak numbers around TSS")
+```
+
+## 3) Annotate the peaks for genomic features such as intron, exon, 3’UTR, etc and compare the annotations between between PRDM1 and ZNF414
+
+First, we summarized the distribution of peaks `PRMD1` and `ZNF414` over different type of features such as exon, intron, enhancer, proximal promoter, 5’ UTR and 3’ UTR.
+
+```{r}
+peaks <- GRangesList(ZNF414=ZNF414,
+                     PRDM1=PRDM1)
+
+# Check the genomic element distribution of the duplicates
+# The genomic element distribution will indicates the correlation between duplicates
+genomicElementDistribution(peaks, 
+                           TxDb = txdb,
+                           promoterRegion=c(upstream=2000, downstream=500),
+                           geneDownstream=c(upstream=0, downstream=2000))
+```
+
+We created upsetplots for `PRMD1` and `ZNF414`.
+
+```{r}
+peakAnno_PRDM1 <- annotatePeak(PRDM1, tssRegion=c(-3000, 3000),
+                         TxDb=txdb, annoDb="org.Hs.eg.db", verbose=FALSE)
+
+upsetplot(peakAnno_PRDM1) + ggtitle("Upsetplot PRDM1")
+```
+
+```{r}
+peakAnno_ZNF414 <- annotatePeak(ZNF414, tssRegion=c(-3000, 3000),
+                         TxDb=txdb, annoDb="org.Hs.eg.db", verbose=FALSE)
+
+upsetplot(peakAnno_ZNF414)  + ggtitle("Upsetplot ZNF414")
+```
+
+We calculated the percentage of binding sites upstream and downstream from the TSS of the nearest genes and visualized the distribution.
+
+```{r}
+plotDistToTSS(list(PRDM1=peakAnno_PRDM1, ZNF414=peakAnno_ZNF414), title="Distribution of transcription factor-binding loci \n relative to TSS")
+```
+
+We also checked the genomic element distribution for the overlaps.
+
+```{r}
+out <- genomicElementDistribution(overlaps, 
+                           TxDb = txdb,
+                           promoterRegion=c(upstream=2000, downstream=500),
+                           geneDownstream=c(upstream=0, downstream=2000),
+                           promoterLevel=list(
+                         # from 5' -> 3', fixed precedence 3' -> 5'
+                             breaks = c(-2000, -1000, -500, 0, 500),
+                             labels = c("upstream 1-2Kb", "upstream 0.5-1Kb", 
+                                        "upstream <500b", "TSS - 500b"),
+                             colors = c("#FFE5CC", "#FFCA99", 
+                                        "#FFAD65", "#FF8E32")))
+```
 
 ## 4) Assign peaks to genes – then perform pathway enrichment.
 
-## 5) What genes and pathways/genesets shared between these datasets? What pathways differ? What is your interpretation of these results? What future directions could you propose to follow up on these findings? (No right answers to these questions, just important to think through this part).
+```{r}
+# Get annotation data frame
+PRDM1_annot <- as.data.frame(peakAnno_PRDM1@anno)
+ZNF414_annot <- as.data.frame(peakAnno_ZNF414@anno)
+```
+
+We assigned genes to PRDM1 peaks and performed pathway enrichment (see **Table 1**).
+
+```{r}
+PRDM1_ego <- enrichGO(gene = PRDM1_annot$geneId, 
+                    keyType = "ENTREZID", 
+                    OrgDb = org.Hs.eg.db, 
+                    ont = "BP", # Biological Process 
+                    pAdjustMethod = "BH", 
+                    qvalueCutoff = 0.05, 
+                    readable = TRUE)
+
+PRDM1_egodf <- PRDM1_ego %>%
+  filter(p.adjust <= 0.05) %>%
+  arrange(desc(Count)) %>%
+  select(Description, p.adjust, geneID, Count) %>%
+  .@result
+
+datatable(PRDM1_egodf, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 1', class = 'cell-border stripe')
+```
+
+We assigned genes to ZNF414 peaks and performed pathway enrichment (see **Table 2**).
+
+```{r}
+ZNF414_ego <- enrichGO(gene = ZNF414_annot$geneId, 
+                    keyType = "ENTREZID", 
+                    OrgDb = org.Hs.eg.db, 
+                    ont = "BP", # Biological Process 
+                    pAdjustMethod = "BH", 
+                    qvalueCutoff = 0.05, 
+                    readable = TRUE)
+
+ZNF414_egodf <- ZNF414_ego %>%
+  filter(p.adjust <= 0.05) %>%
+  arrange(desc(Count)) %>%
+  select(Description, p.adjust, geneID, Count) %>%
+  .@result
+
+datatable(ZNF414_egodf, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 2', class = 'cell-border stripe')
+```
+
+## 5) What are genes and pathways/genesets shared between PRDM1 and ZNF414? 
+
+**Table 3** shows the genes shared between PRDM1 and ZNF414.
+
+```{r}
+intersect_genes <- grch38 %>% 
+  filter(entrez %in% intersect(unique(PRDM1_annot$geneId), unique(ZNF414_annot$geneId))) %>%
+  select(-chr, -strand, -biotype)
+
+datatable(intersect_genes, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 3', class = 'cell-border stripe')
+```
+
+**Table 4** shows the pathways/genesets shared between PRDM1 and ZNF414.
+
+```{r}
+intersect_go <- rbind(PRDM1_egodf, ZNF414_egodf) %>%
+  rownames_to_column() %>%
+  filter(rowname %in% intersect(rownames(PRDM1_egodf), rownames(ZNF414_egodf))) %>%
+  arrange(desc(Count)) %>%
+  select(-p.adjust, -Count)
+
+intersect_go <- column_to_rownames(intersect_go, var = "rowname")
+
+datatable(intersect_go, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 4', class = 'cell-border stripe')
+```
+
+## 6) What pathways differ? 
+
+**Table 5** shows the pathways that differ between PRDM1 and ZNF414.
+
+```{r}
+PRDM1_egodf <- PRDM1_egodf %>%
+   mutate(Origin = "PRDM1", .after = "Description")
+
+ZNF414_egodf <- ZNF414_egodf %>%
+  mutate(Origin = "ZNF414", .after = "Description")
+
+outersect_go <- rbind(PRDM1_egodf, ZNF414_egodf) %>%
+  rownames_to_column() %>%
+  filter(!rowname %in% intersect(rownames(PRDM1_egodf), rownames(ZNF414_egodf))) %>%
+  arrange(desc(Count)) %>%
+  select(-p.adjust, -Count)
+
+outersect_go <- column_to_rownames(outersect_go, var = "rowname")
+
+datatable(outersect_go, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 5', class = 'cell-border stripe')
+```
+
+## 7.1) What is your interpretation of these results? 
+
+## 7.2) What future directions could you propose to follow up on these findings?

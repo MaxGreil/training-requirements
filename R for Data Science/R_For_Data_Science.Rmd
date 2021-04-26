@@ -4,8 +4,6 @@ author: "Maximilian Greil"
 date: "11 4 2021"
 output:
   html_document:
-    toc: TRUE
-    toc_float: TRUE
     theme: journal
 ---
 
@@ -26,10 +24,8 @@ suppressMessages(library(broom))
 
 ## 1) Read in the <code>gapminder_clean.csv</code> data as a <code>tibble</code> using <code>read_csv</code>
 
-Read in gapminder_clean.csv as a tibble using read_csv
-
 ```{r}
-dat <- read.csv('gapminder_clean.csv') %>% as_tibble
+dat <- read.csv('gapminder_clean.csv')
 dim(dat)
 ```
 
@@ -41,7 +37,7 @@ The gapminder data consists of a matrix with 2607 rows and 20 columns.
 dat %>% 
   filter(Year == 1962) %>%
   # remove rows which contain NAs
-  filter_at(vars(CO2.emissions..metric.tons.per.capita., gdpPercap), all_vars(!is.na(.))) %>%
+  filter(across(c(CO2.emissions..metric.tons.per.capita., gdpPercap), ~ !is.na(.))) %>%
   ggplot(aes(x = gdpPercap, y = CO2.emissions..metric.tons.per.capita.)) +
   geom_point() +
   ylab("CO2 emissions (metric tons per capita)")
@@ -51,7 +47,7 @@ dat %>%
 dat %>% 
   filter(Year == 1962) %>%
   # remove rows which contain NAs
-  filter_at(vars(CO2.emissions..metric.tons.per.capita., gdpPercap), all_vars(!is.na(.))) %>%
+  filter(across(c(CO2.emissions..metric.tons.per.capita., gdpPercap), ~ !is.na(.))) %>%
   ggplot(aes(x = log(gdpPercap), y = log(CO2.emissions..metric.tons.per.capita.))) +
   geom_point() +
   ylab("log(CO2 emissions (metric tons per capita))")
@@ -65,7 +61,7 @@ Log transformed data can be used to make data as “normal” as possible so tha
 dat %>% 
   filter(Year == 1962) %>%
   # remove rows which contain NAs
-  filter_at(vars(CO2.emissions..metric.tons.per.capita., gdpPercap), all_vars(!is.na(.))) %>%
+  filter(across(c(CO2.emissions..metric.tons.per.capita., gdpPercap), ~ !is.na(.))) %>%
   pivot_longer( gdpPercap, names_to = "x_var", values_to = "x_val") %>%
   pivot_longer( CO2.emissions..metric.tons.per.capita., names_to = "y_var", values_to = "y_val") %>%
   group_by(x_var, y_var) %>%
@@ -81,7 +77,7 @@ The Pearson R value of 'CO2 emissions (metric tons per capita)' and gdpPercap in
 dat %>% 
   filter(Year == 1962) %>%
   # remove rows which contain NAs
-  filter_at(vars(CO2.emissions..metric.tons.per.capita., gdpPercap), all_vars(!is.na(.))) %>%
+  filter(across(c(CO2.emissions..metric.tons.per.capita., gdpPercap), ~ !is.na(.))) %>%
   pivot_longer( gdpPercap, names_to = "x_var", values_to = "x_val") %>%
   pivot_longer( CO2.emissions..metric.tons.per.capita., names_to = "y_var", values_to = "y_val") %>%
   group_by(x_var, y_var) %>%
@@ -97,7 +93,7 @@ The Pearson R value of log transformed 'CO2 emissions (metric tons per capita)' 
 ```{r}
 year.cor.max <- dat %>%
   # remove rows which contain NAs
-  filter_at(vars(CO2.emissions..metric.tons.per.capita., gdpPercap), all_vars(!is.na(.))) %>%
+  filter(across(c(CO2.emissions..metric.tons.per.capita., gdpPercap), ~ !is.na(.))) %>%
   # split origial tibble in lists depending on the year
   split(.$Year) %>%
   # perform pearson correlation test on each year list, keep only the pearson R value
@@ -118,7 +114,7 @@ In year 2002 is the correlation between 'CO2 emissions (metric tons per capita)'
 viz <- dat %>% 
     filter(Year == 2002) %>%
     # remove rows which contain NAs
-    filter_at(vars(gdpPercap, CO2.emissions..metric.tons.per.capita.), all_vars(!is.na(.))) %>%
+    filter(across(c(CO2.emissions..metric.tons.per.capita., gdpPercap), ~ !is.na(.))) %>%
     ggplot(aes(x = log(gdpPercap), y = log(CO2.emissions..metric.tons.per.capita.), text=paste0('</br>log(gdpPercap): ', gdpPercap, '</br>log(CO2 emissions (metric tons per capita)): ', CO2.emissions..metric.tons.per.capita., '</br>population: ', pop, '</br>continent: ', continent, '</br>Country Name: ', Country.Name))) +
     geom_point(aes(size = pop, color = continent)) +
     ylab("log(CO2 emissions (metric tons per capita))")
@@ -143,7 +139,7 @@ Therefore, we have to check if the parametric assumptions are satisfied. For ANO
 dat %>%
   filter(continent != "") %>%
   # remove rows which contain NAs
-  filter_at(vars(Energy.use..kg.of.oil.equivalent.per.capita.), all_vars(!is.na(.))) %>%
+  filter(across(Energy.use..kg.of.oil.equivalent.per.capita., ~ !is.na(.))) %>%
   ggplot(aes(x=continent, y=Energy.use..kg.of.oil.equivalent.per.capita., fill = continent)) +
   geom_boxplot() +
   ylab("Energy use (kg of oil equivalent per capita)")
@@ -157,7 +153,7 @@ First, exploratory data analysis (EDA) was performed on the data. We can say tha
 dat %>%
   filter(continent != "") %>%
   # remove rows which contain NAs
-  filter_at(vars(Energy.use..kg.of.oil.equivalent.per.capita.), all_vars(!is.na(.))) %>%
+  filter(across(Energy.use..kg.of.oil.equivalent.per.capita., ~ !is.na(.))) %>%
   # perform Levene’s test
   do(tidy(leveneTest(.$Energy.use..kg.of.oil.equivalent.per.capita.~.$continent, data = .)))
 ```
@@ -170,7 +166,7 @@ We reject the H0 hypothesis that the variances are equal based on the p value of
 dat %>%
   filter(continent != "") %>%
   # remove rows which contain NAs
-  filter_at(vars(Energy.use..kg.of.oil.equivalent.per.capita.), all_vars(!is.na(.))) %>%
+  filter(across(Energy.use..kg.of.oil.equivalent.per.capita., ~ !is.na(.))) %>%
   # perform Kruskal-Wallis test
   do(tidy(kruskal.test(.$Energy.use..kg.of.oil.equivalent.per.capita.~.$continent, data = .)))
 ```  
@@ -181,7 +177,7 @@ The resulting p value of our Kruskal-Wallis test shows that there is a significa
 dat6 <- dat %>%
   filter(continent != "") %>%
   # remove rows which contain NAs
-  filter_at(vars(Energy.use..kg.of.oil.equivalent.per.capita.), all_vars(!is.na(.)))
+  filter(across(Energy.use..kg.of.oil.equivalent.per.capita., ~ !is.na(.)))
 
 # perform dunn's test
 dunn.test(dat6$Energy.use..kg.of.oil.equivalent.per.capita., g=dat6$continent)
@@ -204,7 +200,7 @@ Therefore, we have to check if the parametric assumptions are satisfied. For Stu
 dat %>%
   filter(Year > 1990 & (continent == "Europe" | continent == "Asia")) %>%
   # remove rows which contain NAs
-  filter_at(vars(Imports.of.goods.and.services....of.GDP.), all_vars(!is.na(.))) %>%
+  filter(across(Imports.of.goods.and.services....of.GDP., ~ !is.na(.))) %>%
   ggplot(aes(x=continent, y=Imports.of.goods.and.services....of.GDP., fill = continent)) +
   geom_boxplot() +
   ylab("Imports of goods and services (% of GDP)")
@@ -218,7 +214,7 @@ First, exploratory data analysis (EDA) was performed on the data. We can say tha
 dat %>%
   filter(Year > 1990 & (continent == "Europe" | continent == "Asia")) %>%
   # remove rows which contain NAs
-  filter_at(vars(Imports.of.goods.and.services....of.GDP.), all_vars(!is.na(.))) %>%
+  filter(across(Imports.of.goods.and.services....of.GDP., ~ !is.na(.))) %>%
   # perform Shapiro-Wilk normality test
   do(tidy(shapiro.test(.$Imports.of.goods.and.services....of.GDP.)))
 ```
@@ -231,7 +227,7 @@ We reject the H0 hypothesis that the data is normally distributed based on the p
 dat %>%
   filter(Year > 1990 & (continent == "Europe" | continent == "Asia")) %>%
   # remove rows which contain NAs
-  filter_at(vars(Imports.of.goods.and.services....of.GDP.), all_vars(!is.na(.))) %>%
+  filter(across(Imports.of.goods.and.services....of.GDP., ~ !is.na(.))) %>%
   # perform Wilcoxon Rank sums test
   do(tidy(wilcox.test(.$Imports.of.goods.and.services....of.GDP.~.$continent)))
 ```
@@ -245,7 +241,7 @@ First, exploratory data analysis (EDA) was performed on the data.
 ```{r}
 viz <- dat %>%
   # remove rows which contain NAs
-  filter_at(vars(Year, Country.Name, Population.density..people.per.sq..km.of.land.area.), all_vars(!is.na(.))) %>%
+  filter(across(c(Year, Country.Name, Population.density..people.per.sq..km.of.land.area.), ~ !is.na(.))) %>%
   ggplot(aes(x=Year, y=Population.density..people.per.sq..km.of.land.area., group = Country.Name)) + 
   geom_line() + 
   ylab("Population density (people per sq. km of land area)")
@@ -256,7 +252,7 @@ ggplotly(viz)
 ```{r}
 highest.number <- dat %>%
   # remove rows which contain NAs
-  filter_at(vars(Year, Country.Name, Population.density..people.per.sq..km.of.land.area.), all_vars(!is.na(.))) %>%
+  filter(across(c(Year, Country.Name, Population.density..people.per.sq..km.of.land.area.), ~ !is.na(.))) %>%
   # split origial tibble in lists depending on the year
   split(.$Year) %>%
   # get maximum of variable in every year
@@ -280,7 +276,7 @@ First, exploratory data analysis (EDA) was performed on the data.
 ```{r}
 viz <- dat %>%
   # remove rows which contain NAs
-  filter_at(vars(Year, Country.Name, Life.expectancy.at.birth..total..years.), all_vars(!is.na(.))) %>%
+  filter(across(c(Year, Country.Name, Life.expectancy.at.birth..total..years.), ~ !is.na(.))) %>%
   ggplot(aes(x=Year, y=Life.expectancy.at.birth..total..years., group = Country.Name)) + 
   geom_line() + 
   ylab("Life expectancy at birth, total (years)")
@@ -294,7 +290,7 @@ To get the difference for Life expectancy at birth, total (years) for every coun
 dat %>%
   filter(Year == 1962 | Year == 2007) %>%
   # remove rows which contain NAs
-  filter_at(vars(Year, Country.Name, Life.expectancy.at.birth..total..years.), all_vars(!is.na(.))) %>%
+  filter(across(c(Year, Country.Name, Life.expectancy.at.birth..total..years.), ~ !is.na(.))) %>%
   group_by(Country.Name) %>%
   # Calculate difference between 1962 and 2007
   mutate(diff = Life.expectancy.at.birth..total..years. - lag(Life.expectancy.at.birth..total..years., default = 0)) %>% 

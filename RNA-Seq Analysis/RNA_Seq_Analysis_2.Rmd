@@ -4,7 +4,6 @@ author: "Maximilian Greil"
 date: "19 4 2021"
 output:
   html_document:
-    toc: TRUE
     theme: journal
 ---
 
@@ -42,7 +41,7 @@ The biological question was to clarify the lineage relationship between IL3Rαhi
 
 ### 0.2) First look at data
 
-The data was downloaded via R package `recount`. The data was downloaded via R package `recount` with accession number `SRP055103`. **Table 1** shows the downloaded metadata for study `SRP055103`.
+The data was downloaded via R package `recount` with accession number `SRP055103`. **Table 1** shows the downloaded metadata for study `SRP055103`.
 
 ```{r}
 dat <- read.csv('SRP055103.txt', header = TRUE, sep = ",")
@@ -224,13 +223,6 @@ gseares <- GSEA(geneList = ranks,
 gsearesdf <- as.data.frame(gseares)
 ```
 
-We additionally created a dotplot for enrichment result of our GSEA.
-
-```{r}
-# Make summary plots
-dotplot(gseares) + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-```
-
 ```{r}
 # Get top 5 over-expressed pathways
 top_pathways <- gsearesdf %>%
@@ -292,22 +284,26 @@ datatable(sig_gsearesdf, options=list(scrollX = TRUE, scrollY = TRUE), caption =
 
 ## 6) Concluding questions
 
-### 6.1) What do the results tell you about your conditions of interest?
+### 6.1) What does this finding imply about IL3R cells?
 
-IL3Rαhigh- and IL3Rαlow precursor cells can clearly be differentiated based on their gene expression patterns.\ 
+As stated at the beginning, the biological question of this study was to clarify the lineage relationship between IL3Rαhigh- and IL3Rαlow precursor cells and to find potential molecules involved in their differentiation.\
 
-The found significant DEGs also show up in a lot of significant pathways during GSEA.
+The [original paper](https://doi.org/10.1016/j.stemcr.2015.04.012) categorized the IL3Rαlow subset as common progenitor of granulocytes (GR), macrophages (MΦ), Osteoclasts (OC), and dendritic cells(DC) (**GMODP, common progenitor of GR, MΦ, OC, and DC**) and the IL3Rαhigh as common progenitor of MΦ, OC, and DC (**MODP, common progenitor of MΦ, OC, and DC**).\
 
-### 6.2) What is the biological meaning of these results?
+OCs, MΦs, and DCs are closely related hematopoietic cell lines (blood cells).\
 
-The biological question was to clarify the lineage relationship between IL3Rαhigh- and IL3Rαlow precursor cells and to find potential molecules involved in their differentiation.\
+However, in cancer and autoimmune and inflammatory diseases, OCs can be promoted by tumors or immune cells, which facilitates bone metastasis, pathological bone loss, and remodeling.\
 
-All results in this RNA-Seq analysis indicate powerful biological differences between IL3Rαhigh- and IL3Rαlow precursor cells.\
+According to the original paper, a ingenuity pathway analysis (IPA) of DEGs indicated a further commitment to MΦ/OC/DC differentiation in the transition from the IL3Rαlow to the IL3Rαhigh phenotype. Additionally, the IL3Rαhigh subset showed higher mRNA expression of transcription factors important for pDC, cDC, and MΦ development.\
 
-As also stated in the corresponding study this indicated that the gene expression patterns of these cells are likely to be conserved.\
+This RNA-Seq analysis was able to reproduce results from the original study.\
 
-Among the found significant DEGs, genes involved in the differentiation of cell in general, amongst which differentiation of MΦ, OC and antigen presenting cells appeared to be activation increased.
+### 6.2) What does this tell us about development of the immune system?
 
-### 6.3) What future experiments could you perform?
+Hematopoietic cells play an important role in the immune systems. The results from the  original study showed that the IL3Rα expression level discriminates two successive stages in commitment toward the OC, MΦ, and DC fate.\
 
-The experiment could be repeated but this time with a much larger sample size. This could be helpful in distinguishing important senescence genes between true - and false positives found in this analysis.
+The concentration of certain factors (in our example IL3Rαlow and IL3Rαhigh) contribute to the explained differentiation of pluripotent progenitor cells.
+
+### 6.3) Why does this matter within the context of the developmental biology field?
+
+Understanding the development of OC, DC, and MΦ is important for clinical diagnostics, targeted drug-based therapy, and cellular therapy.
