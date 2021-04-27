@@ -68,9 +68,10 @@ player_move <- function() {
   while(check) {
     numbers <- check_player_input()
     if(!is.element('-1', numbers) && check_player_move_board(numbers[1], numbers[2])) {
-      cat(paste0("Place '", symbol, "' at row ", numbers[1], " column ", numbers[2], " ? [y/n] "))
+      cat(paste0("You want to place '", symbol, "' at row ", numbers[1], " column ", numbers[2]))
+      cat("\nPlease confirm your choice by selecting either 'y' (yes) or 'n' (no) and THEN PRESSING ENTER. ")
       confirmation <- check_player_confirmation()
-      if(confirmation == "y" || confirmation == '') {
+      if(confirmation == "y") {
         cat("\nMove registered!\n")
         board[strtoi(numbers[1]), strtoi(numbers[2])] = symbol
         check <- FALSE
@@ -124,15 +125,12 @@ check_player_confirmation <- function() {
     }
     player_confirmation <- readLines(con = con, n = 1)
     # Enter key is also correct input 
-    if(player_confirmation == '') {
+    if(player_confirmation != "y" && player_confirmation != "n") {
+      cat("Your input was incorrect! Please read the instructions!\n") 
+      cat("You either have to confirm ('y') or disconfirm ('n') your move and THEN PRESS ENTER!\n")
+      cat("Please select either 'y' (yes) or 'n' (no) and THEN PRESS ENTER. ")
+    } else {
       check <- FALSE
-    }
-    if(check) {
-      if(player_confirmation != "y" && player_confirmation != "n") {
-        cat(paste0("Incorrect input! Please choose between 'y' and 'n'.\n"))
-      } else {
-        check <- FALSE
-      }
     }
   }
   return(player_confirmation)

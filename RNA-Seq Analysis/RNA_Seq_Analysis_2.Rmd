@@ -82,7 +82,7 @@ To confirm the results of our PCA analysis, we additionally calculated the sampl
 ```{r}
 poisd <- PoissonDistance(t(counts(dds)))
 samplePoisDistMatrix <- as.matrix( poisd$dd )
-rownames(samplePoisDistMatrix) <- paste( dds$condition, dds$title, sep=" - " )
+rownames(samplePoisDistMatrix) <- NULL
 colnames(samplePoisDistMatrix) <- NULL
 colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
 annotation <- as.data.frame(colData(rld)[, "condition"])
@@ -92,7 +92,8 @@ pheatmap(samplePoisDistMatrix,
          clustering_distance_rows = poisd$dd,
          clustering_distance_cols = poisd$dd,
          annotation_row = annotation,
-         col = colors)
+         col = colors,
+         legend=FALSE)
 ```
 
 The high degree of separation between biological conditions and close clustering of replicates for both PCA and Heatmap were an encouraging sign of high data quality and strongly detectable biological differences. 
