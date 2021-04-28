@@ -89,8 +89,7 @@ dat %>%
   filter(!is.na(`CO2 emissions (metric tons per capita)`) & !is.na(gdpPercap)) %>%
   # group origial tibble depending on the year
   group_by(Year) %>%
-  summarise(cor_coef = cor.test(log(gdpPercap), log(`CO2 emissions (metric tons per capita)`))$estimate,
-            p_val = cor.test(log(gdpPercap), log(`CO2 emissions (metric tons per capita)`))$p.value) %>%
+  summarise(cor_coef = cor.test(log(gdpPercap), log(`CO2 emissions (metric tons per capita)`))$estimate) %>%
   arrange(desc(cor_coef))
 ```
 
@@ -218,7 +217,7 @@ dat %>%
   wilcox_test(Imports ~ continent)
 ```
 
-We reject the H0 hypothesis that there is a significant difference between Europe and Asia with respect to 'Imports of goods and services (% of GDP)' in the years after 1990 based on the p values of our Wilcoxon Rank sums test.
+We can not reject the H0 hypothesis that there is a significant difference between Europe and Asia with respect to 'Imports of goods and services (% of GDP)' in the years after 1990 based on the p values of our Wilcoxon Rank sums test.
 
 ## 8) What is the country (or countries) that has the highest <code>'Population density (people per sq. km of land area)'</code> across all years? (i.e., which country has the highest average ranking in this category across each time point in the dataset?)
 
@@ -241,13 +240,15 @@ dat %>%
   filter(!is.na(Year) & !is.na(`Country Name`) & !is.na(`Population density (people per sq. km of land area)`)) %>%
   group_by(Year) %>%
   arrange(Year, desc(`Population density (people per sq. km of land area)`)) %>%
+  # create new column ranking by ranking the population density by year for every country from highest to lowest 
   mutate(ranking = row_number()) %>%
   group_by(`Country Name`) %>%
+  # calculate the mean ranking score for every country for all years
   summarize(avg_ranking = mean(ranking)) %>%
   arrange(avg_ranking)
 ```
 
-The countries that have the highest 'Population density (people per sq. km of land area)' across all years are Macao SAR and Monaco.
+Column avg_ranking presents the mean ranking score for population density by year for every country from highest to lowest. The countries that have the highest 'Population density (people per sq. km of land area)' across all years are Macao SAR and Monaco.
 
 ## 9) What country (or countries) has shown the greatest increase in <code>'Life expectancy at birth, total (years)'</code> since 1962?
 

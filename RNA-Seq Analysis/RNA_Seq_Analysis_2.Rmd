@@ -79,24 +79,27 @@ plotPCA(rld, intgroup = c("condition", "title"))
 
 To confirm the results of our PCA analysis, we additionally calculated the sample-level distance with hierarchical clustering.
 
-```{r}
+```{r, fig.height=7, fig.width=7.5}
 poisd <- PoissonDistance(t(counts(dds)))
 samplePoisDistMatrix <- as.matrix( poisd$dd )
-rownames(samplePoisDistMatrix) <- NULL
-colnames(samplePoisDistMatrix) <- NULL
+rownames(samplePoisDistMatrix) <- dds$title
+colnames(samplePoisDistMatrix) <- dds$title
 colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
 annotation <- as.data.frame(colData(rld)[, "condition"])
-rownames(annotation) <- paste( dds$condition, dds$title, sep=" - " )
+rownames(annotation) <- dds$title
 colnames(annotation) <- "condition"
 pheatmap(samplePoisDistMatrix,
          clustering_distance_rows = poisd$dd,
          clustering_distance_cols = poisd$dd,
          annotation_row = annotation,
          col = colors,
-         legend=FALSE)
+         legend=FALSE,
+         angle_col = 315)
 ```
 
-The high degree of separation between biological conditions and close clustering of replicates for both PCA and Heatmap were an encouraging sign of high data quality and strongly detectable biological differences. 
+The PCA showed a high degree of separation between biological conditions and close clustering of replicates. However, the Heatmap did not replicate that. It did not show a high degree separation between biological conditions (the lighter/darker blue fields between low and high conditions).\
+
+Overall, we still consider the data of high quality and we should be able to detect significant biological differences between our two conditions. 
 
 ## 2) Differential expression analysis
 
@@ -149,12 +152,12 @@ plotMA(resNorm)
 
 ### 3.2) Create a Volcano Plot
 
-The correlation of effect size (`Log2 fold change`) and significance (`-Log10P`) show a number of significant DEGs.
+The correlation of effect size (`Log2 fold change`) and significance (`-Log10P`) showed a number of significant DEGs (colored in red).
 
 ```{r, fig.height=8.5, fig.width=7.5}
 EnhancedVolcano(resdf, 
                 lab = resdf$SYMBOL, 
-                pCutoff = 1e-100, #0.01
+                pCutoff = 1e-30,
                 FCcutoff = 3,
                 x = "log2FoldChange", 
                 y = "padj",
@@ -163,27 +166,37 @@ EnhancedVolcano(resdf,
 
 ## 4) Heatmap showing the top 20 over- and under-expressed DEGs
 
-The top 20 DEGs were strongly divergent between biological conditions high and low.
+The top 20 over- and under-expressed DEGs were identified based on their effect size (`Log2 fold change`). The 20 DEGs with the highest and the 20 DEGs with the lowest effect size were selected.\
 
-```{r}
+The top 20 over- and under-expressed DEGs were strongly divergent between biological conditions high and low.
+
+```{r, fig.height=8, fig.width=8}
 # Prepare matrix for heatmap
 mat <- assay(rld)
-ordered_over_expressed_genes <- over_expressed_genes[order(over_expressed_genes$padj), ]
+ordered_over_expressed_genes <- over_expressed_genes[order(over_expressed_genes$log2FoldChange), ]
 id1 <- rownames(ordered_over_expressed_genes)
 id2 <- ordered_over_expressed_genes$SYMBOL
 DE <- mat[id1,]
 rownames(DE) <- id2
 
-# Plot heatmap of top 20 DEGs
-top20DE <- head(DE, n=20)
+# Plot heatmaps of top 20 over- and under-expressed DEGs
+top20DE <- rbind(head(DE, n=20), tail(DE, n=20))
 DEgenesTop <- mat[top20DE,]
 annotation <- as.data.frame(colData(rld)[, c("condition","title")])
-pheatmap(top20DE, scale = "row", clustering_distance_rows = "correlation", annotation_col = annotation, main="Top 20 DEGs")
+pheatmap(top20DE, 
+          scale = "row",
+          cutree_rows = 2,
+          clustering_distance_rows = "correlation", 
+          annotation_col = annotation, 
+          main="Top 20 over- and under-expressed DEGs",
+          legend=FALSE,
+          angle_col = 315,
+          cellheight=10)
 ```
 
 Taken together, these results indicate powerful biological differences between high and low conditions.
 
-## 5) Top 5 pathways of GSEA of DEGs
+## 5) Top 5 pathways of <code>GSEA</code> of DEGs
 
 Gene set enrichment analysis (GSEA) was performed with `-log10(FDR)*sign(log2FoldChange)` as the ranking metric and using all available gene set annotations from MSIGDB.
 
@@ -218,21 +231,60 @@ hist(resdf2$gsea_metric, breaks = 100, xlab = "Calculated GSEA metric", main = "
 ```
 
 ```{r}
+# Ensure a deterministic result for GSEA
+set.seed(5)
+
 # Run GSEA
 gseares <- GSEA(geneList = ranks, 
                 TERM2GENE = gene_sets)
 gsearesdf <- as.data.frame(gseares)
-```
 
-```{r}
 # Get top 5 over-expressed pathways
 top_pathways <- gsearesdf %>%
   top_n(n = 5, wt = NES) %>%
+  arrange(NES)
+
+# Repeat steps with top 5 under-expressed pathways
+bottom_pathways <- gsearesdf %>%
+  top_n(n = 5, wt = -NES) %>%
+  arrange(NES)
+```
+
+We created a barplot to show the identified top 5 under- and over-expressed pathways based on their calculated normalized enrichment score (NES) by GSEA.
+
+```{r}
+# Create barplot of top 5 under - and over-expressed pathways
+sig_pathways = rbind(bottom_pathways, top_pathways)
+
+sig_pathways$ID <- factor(sig_pathways$ID, levels = sig_pathways$ID[order(sig_pathways$NES, decreasing = TRUE)])
+
+ggplot(sig_pathways, aes(x=ID, y=NES)) + 
+  geom_bar(stat = "identity") +
+  ggtitle("Top 5 pathways") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  xlab("") +
+  ylab("Normalized Enrichment Score") +
+  coord_flip()
+```
+
+### 5.1) Top 5 over-expressed pathways
+
+The plot below shows the top 5 over-expressed pathways for our GSEA.\
+
+How to interpret these plots?\
+
+The x-axis is dependent on and represents our input list of ranked genes, i.e. the identified significant DEGs ranked by their calculated GSEA metric. The black vertical bars along the x-axis are those genes from our input list that feature in the gene-set / signature that is being enriched. The green line is the enrichment of this gene-set / signature. The enrichment can be positive or negative.
+
+```{r}
+# Get IDs for top 5 over-expressed pathways
+top_pathways <- top_pathways %>%
   pull(ID)
 
 # Make gseaplot for each and return as list
 top_pathway_plots <- lapply(top_pathways, function(pathway) {
-  gseaplot(gseares, geneSetID = pathway, title = pathway)
+  pathway_short <- pathway %>% 
+    str_trunc(25)
+  gseaplot(gseares, geneSetID = pathway, title = pathway_short)
 })
 
 # Arrange with labels as a multi-panel plot
@@ -243,20 +295,23 @@ ggsave(top_pathway_plot, filename = "top_GSEA_up.png",
        height = 11, width = 18)
 ```
 
-The plot below shows the top 5 over-expressed pathways for our GSEA.
-
 ```{r out.width='100%'}
 knitr::include_graphics('top_GSEA_up.png')
 ```
 
+### 5.2) Top 5 under-expressed pathways
+
+The plot below shows the top 5 under-expressed pathways for our GSEA.
+
 ```{r}
 # Repeat steps with top 5 under-expressed pathways
-bottom_pathways <- gsearesdf %>%
-  top_n(n = 5, wt = -NES) %>%
+bottom_pathways <- bottom_pathways %>%
   pull(ID)
 
 bottom_pathway_plots <- lapply(bottom_pathways, function(pathway) {
-  gseaplot(gseares, geneSetID = pathway, title = pathway)
+  pathway_short <- pathway %>% 
+    str_trunc(25)
+  gseaplot(gseares, geneSetID = pathway, title = pathway_short)
 })
 
 bottom_pathway_plot <- ggarrange(plotlist = bottom_pathway_plots,
@@ -266,13 +321,13 @@ ggsave(bottom_pathway_plot, filename = "top_GSEA_down.png",
        height = 11, width = 18)
 ```
 
-The plot below shows the top 5 under-expressed pathways for our GSEA.
-
 ```{r out.width='100%'}
 knitr::include_graphics('top_GSEA_down.png')
 ```
 
-We found significant results for our GSEA based on an adjusted p-value smaller than or equal to 0.05 (see **Table 3**).
+### 5.3) Table of all significant pathways
+
+We found 113 significant results for our GSEA based on an adjusted p-value smaller than or equal to 0.05 (see **Table 3**).
 
 ```{r}
 sig_gsearesdf <- gsearesdf %>%
@@ -289,7 +344,7 @@ datatable(sig_gsearesdf, options=list(scrollX = TRUE, scrollY = TRUE), caption =
 
 As stated at the beginning, the biological question of this study was to clarify the lineage relationship between IL3Rαhigh- and IL3Rαlow precursor cells and to find potential molecules involved in their differentiation.\
 
-The [original paper](https://doi.org/10.1016/j.stemcr.2015.04.012) categorized the IL3Rαlow subset as common progenitor of granulocytes (GR), macrophages (MΦ), Osteoclasts (OC), and dendritic cells(DC) (**GMODP, common progenitor of GR, MΦ, OC, and DC**) and the IL3Rαhigh as common progenitor of MΦ, OC, and DC (**MODP, common progenitor of MΦ, OC, and DC**).\
+The [original paper](https://doi.org/10.1016/j.stemcr.2015.04.012) categorized the IL3Rαlow subset as common progenitor of granulocytes (GR), macrophages (MΦ), Osteoclasts (OC), and dendritic cells (DC) (**GMODP, common progenitor of GR, MΦ, OC, and DC**) and the IL3Rαhigh as common progenitor of MΦ, OC, and DC (**MODP, common progenitor of MΦ, OC, and DC**).\
 
 OCs, MΦs, and DCs are closely related hematopoietic cell lines (blood cells).\
 

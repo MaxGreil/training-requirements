@@ -33,7 +33,7 @@ game_start <- function() {
     cat("X or O? ")
     symbol <<- readLines(con = con, n = 1)
     if(symbol != "X" && symbol != "O") {
-      cat(paste0("Incorrect input! Please choose between 'X' and 'O'.\n"))
+      cat("Incorrect input! Please choose between 'X' and 'O' and THEN PRESS ENTER!\n")
     } else {
       check <- FALSE
       if(symbol == "X") {
@@ -68,8 +68,8 @@ player_move <- function() {
   while(check) {
     numbers <- check_player_input()
     if(!is.element('-1', numbers) && check_player_move_board(numbers[1], numbers[2])) {
-      cat(paste0("You want to place '", symbol, "' at row ", numbers[1], " column ", numbers[2]))
-      cat("\nPlease confirm your choice by selecting either 'y' (yes) or 'n' (no) and THEN PRESSING ENTER. ")
+      cat(paste0("You want to place '", symbol, "' at row ", numbers[1], " column ", numbers[2], "?"))
+      cat("\nPlease select either 'y' for yes or 'n' for no and THEN PRESS ENTER. ")
       confirmation <- check_player_confirmation()
       if(confirmation == "y") {
         cat("\nMove registered!\n")
@@ -131,6 +131,10 @@ check_player_confirmation <- function() {
       cat("Please select either 'y' (yes) or 'n' (no) and THEN PRESS ENTER. ")
     } else {
       check <- FALSE
+      if(player_confirmation == "n") {
+        cat("You disconfirmed your move!\n")
+        cat("Please select your new move:\n")
+      }
     }
   }
   return(player_confirmation)
