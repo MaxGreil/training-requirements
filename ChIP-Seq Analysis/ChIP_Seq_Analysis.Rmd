@@ -27,17 +27,25 @@ suppressMessages(library(tidyverse))
 
 ## 0) Load data
 
-In this ChIP-Seq analysis the goal was analyze two ChIP-Seq data sets and compare the results. If two ChIP-Seq data, obtained by two different binding proteins, overlap significantly, these two proteins may form a complex or have interaction in regulation chromosome remodelling or gene expression.
+In this ChIP-Seq analysis the goal was analyze two ChIP-Seq data sets and compare the results.\
 
-The two data sets analyzed were downloaded from [ENCODE](https://www.encodeproject.org/) and consist of `PRMD1` ([data set](https://www.encodeproject.org/experiments/ENCSR977FEF/) -- [peaks](https://www.encodeproject.org/files/ENCFF719BHI/)) and `ZNF414` ([data set](https://www.encodeproject.org/experiments/ENCSR224NQI/) -- [peaks](https://www.encodeproject.org/files/ENCFF409BJK/)).\ 
+The two data sets chosen for this ChIP-Seq analysis consist of `PRDM1` and and `ZNF414`.\
 
-Both peaks for `PRMD1` and `ZNF414` were downloaded in `bed narrowPeak` format and read-in using R package `ChIPseeker` function `readPeakFile` for further analysis.\
+Gene `PRDM1` encodes protein `PR domain zinc finger protein 1`/`B lymphocyte-induced maturation protein-1 (BLIMP-1)`. This protein is expressed in both B and T cells and plays a significant role in B cell development and antibody production.\
+
+Gene `ZNF414` encodes protein `Zinc Finger Protein 414`. Its function is not clear but it may be involved in transcriptional regulation.\
+
+These two data sets were chosen because an analysis of significant overlaps could enable more inside on how these two proteins may form a complex or have interaction in regulation chromosome remodelling or gene expression.\
+
+The two data sets analyzed were downloaded from [ENCODE](https://www.encodeproject.org/):`PRDM1` ([data set](https://www.encodeproject.org/experiments/ENCSR977FEF/) -- [peaks](https://www.encodeproject.org/files/ENCFF719BHI/)), `ZNF414` ([data set](https://www.encodeproject.org/experiments/ENCSR224NQI/) -- [peaks](https://www.encodeproject.org/files/ENCFF409BJK/)).\ 
+
+Both peaks for `PRDM1` and `ZNF414` were downloaded in `bed narrowPeak` format and read-in using R package `ChIPseeker` function `readPeakFile` for further analysis.\
 
 Both peak files contained `IDR thresholded peaks` and used genome assembly `GRCh38`.
 
 ## 1) Venn diagram comparing the overlap of binding sites between PRDM1 and ZNF414
 
-Both `PRMD1` and `ZNF414` showed a large number of peaks. The overlap between the two showed 2106 peaks.
+Both `PRDM1` and `ZNF414` showed a large number of peaks. The overlap between the two showed 2106 peaks.
 
 ```{r, results='hide'}
 txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
@@ -46,8 +54,10 @@ txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
 PRDM1 <- readPeakFile("PRDM1.bed")
 ZNF414 <- readPeakFile("ZNF414.bed")
 
-# Visualize the overlapping using function makeVennDiagram from ChIPpeakAnno
+# Calculate the overlapping peaks between PRDM1 and ZNF414 with ChIPpeakAnno
 ol <- findOverlapsOfPeaks(PRDM1, ZNF414)
+
+# Visualize the overlapping using function makeVennDiagram from ChIPpeakAnno
 makeVennDiagram(ol, fill=c("#009E73", "#F0E442"), # circle fill color
                 col=c("#D55E00", "#0072B2"), #circle border color
                 cat.col=c("#D55E00", "#0072B2")) # label color, keep same as circle border color
@@ -81,9 +91,10 @@ plotAvgProf(list(PRDM1=tagMatrix_PRDM1, ZNF414=tagMatrix_ZNF414), xlim=c(-3000, 
 # Annotation data should be an object of GRanges.
 annoData <- toGRanges(txdb, feature="gene")
 
-# Plot distribution of the distance of overlapped peaks to transcription start sites (TSS)
+# Get overlapped peaks for PRDM1 and ZNF414
 overlaps <- ol$peaklist[["PRDM1///ZNF414"]]
 
+# Plot distribution of the distance of overlapped peaks to transcription start sites (TSS)
 binOverFeature(overlaps, annotationData=annoData,
                radius=3000, FUN=length, errFun=0,
                xlab="distance from TSS (bp)", ylab="count", 
@@ -109,6 +120,7 @@ genomicElementDistribution(peaks,
 We created upsetplots for `PRMD1` and `ZNF414`.
 
 ```{r}
+# Assign genes to PRDM1 peaks
 peakAnno_PRDM1 <- annotatePeak(PRDM1, tssRegion=c(-3000, 3000),
                          TxDb=txdb, annoDb="org.Hs.eg.db", verbose=FALSE)
 
@@ -116,6 +128,7 @@ upsetplot(peakAnno_PRDM1) + ggtitle("Upsetplot PRDM1")
 ```
 
 ```{r}
+# Assign genes to ZNF414 peaks
 peakAnno_ZNF414 <- annotatePeak(ZNF414, tssRegion=c(-3000, 3000),
                          TxDb=txdb, annoDb="org.Hs.eg.db", verbose=FALSE)
 
@@ -147,19 +160,10 @@ out <- genomicElementDistribution(overlaps,
 ## 4) Assign peaks to genes – then perform pathway enrichment.
 
 ```{r}
-# Assigned genes to PRDM1 peaks
 # Get annotation data frame
 PRDM1_annot <- as.data.frame(peakAnno_PRDM1@anno)
-ZNF414_annot <- as.data.frame(peakAnno_ZNF414@anno)
 
-# Overlap
-peakAnno_overlaps <- annotatePeak(overlaps, tssRegion=c(-3000, 3000),
-                         TxDb=txdb, annoDb="org.Hs.eg.db", verbose=FALSE)
-overlaps_annot <- as.data.frame(peakAnno_overlaps@anno)
-```
-
-```{r}
-# Performed pathway enrichment
+# Performed pathway enrichment for PRDM1
 PRDM1_ego <- enrichGO(gene = PRDM1_annot$geneId, 
                     keyType = "ENTREZID", 
                     OrgDb = org.Hs.eg.db, 
@@ -177,7 +181,10 @@ PRDM1_egodf <- PRDM1_ego %>%
 ```
 
 ```{r}
-# Performed pathway enrichment
+# Get annotation data frame
+ZNF414_annot <- as.data.frame(peakAnno_ZNF414@anno)
+
+# Performed pathway enrichment for ZNF414
 ZNF414_ego <- enrichGO(gene = ZNF414_annot$geneId, 
                     keyType = "ENTREZID", 
                     OrgDb = org.Hs.eg.db, 
@@ -192,55 +199,81 @@ ZNF414_egodf <- ZNF414_ego %>%
   select(Description, p.adjust, geneID, Count) %>%
   .@result
 
-datatable(ZNF414_egodf, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 2', class = 'cell-border stripe')
 ```
 
-## 5) What are genes and pathways/genesets shared between PRDM1 and ZNF414? 
+```{r}
+# Assign genes to overlaps peaks
+peakAnno_overlaps <- annotatePeak(overlaps, tssRegion=c(-3000, 3000),
+                         TxDb=txdb, annoDb="org.Hs.eg.db", verbose=FALSE)
+
+# Get annotation data frame
+overlaps_annot <- as.data.frame(peakAnno_overlaps@anno)
+
+# Performed pathway enrichment for overlaps
+overlaps_ego <- enrichGO(gene = overlaps_annot$geneId, 
+                    keyType = "ENTREZID", 
+                    OrgDb = org.Hs.eg.db, 
+                    ont = "BP", # Biological Process 
+                    pAdjustMethod = "BH", 
+                    qvalueCutoff = 0.05, 
+                    readable = TRUE)
+
+overlaps_egodf <- overlaps_ego %>%
+  filter(p.adjust <= 0.05) %>%
+  arrange(desc(Count)) %>%
+  select(Description, p.adjust, geneID, Count) %>%
+  .@result
+```
+
+### 4.1) What are genes and pathways/genesets shared in the overlap between PRDM1 and ZNF414? 
+
+**Table 1** shows the genes shared in the overlap between PRDM1 and ZNF414.
 
 ```{r}
 intersect_genes <- grch38 %>% 
-  filter(entrez %in% intersect(unique(PRDM1_annot$geneId), unique(ZNF414_annot$geneId))) %>%
+  filter(entrez %in% overlaps_annot$geneId) %>%
   select(-chr, -strand, -biotype)
 
-datatable(intersect_genes, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 3', class = 'cell-border stripe')
+datatable(intersect_genes, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 1', class = 'cell-border stripe')
 ```
 
-**Table 4** shows the pathways/genesets shared between PRDM1 and ZNF414.
+**Table 2** shows the pathways/genesets shared in the overlap between PRDM1 and ZNF414.
 
 ```{r}
-intersect_go <- rbind(PRDM1_egodf, ZNF414_egodf) %>%
+datatable(overlaps_egodf, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 2', class = 'cell-border stripe')
+```
+
+### 4.2) What pathways differ? 
+
+**Table 3** shows the pathways that differ between the overlap and PRDM1.
+
+```{r}
+outersect_ego_PRDM1 <- overlaps_egodf %>%
   rownames_to_column() %>%
-  filter(rowname %in% intersect(rownames(PRDM1_egodf), rownames(ZNF414_egodf))) %>%
+  filter(!rowname %in% rownames(PRDM1_egodf)) %>%
   arrange(desc(Count)) %>%
   select(-p.adjust, -Count)
 
-intersect_go <- column_to_rownames(intersect_go, var = "rowname")
+outersect_ego_PRDM1 <- column_to_rownames(outersect_ego_PRDM1, var = "rowname")
 
-datatable(intersect_go, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 4', class = 'cell-border stripe')
+datatable(outersect_ego_PRDM1, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 3', class = 'cell-border stripe')
 ```
 
-## 6) What pathways differ? 
-
-**Table 5** shows the pathways that differ between PRDM1 and ZNF414.
+**Table 4** shows the pathways that differ between the overlap and ZNF414.
 
 ```{r}
-PRDM1_egodf <- PRDM1_egodf %>%
-   mutate(Origin = "PRDM1", .after = "Description")
-
-ZNF414_egodf <- ZNF414_egodf %>%
-  mutate(Origin = "ZNF414", .after = "Description")
-
-outersect_go <- rbind(PRDM1_egodf, ZNF414_egodf) %>%
+outersect_ego_ZNF414 <- overlaps_egodf %>%
   rownames_to_column() %>%
-  filter(!rowname %in% intersect(rownames(PRDM1_egodf), rownames(ZNF414_egodf))) %>%
+  filter(!rowname %in% rownames(ZNF414_egodf)) %>%
   arrange(desc(Count)) %>%
   select(-p.adjust, -Count)
 
-outersect_go <- column_to_rownames(outersect_go, var = "rowname")
+outersect_ego_ZNF414 <- column_to_rownames(outersect_ego_ZNF414, var = "rowname")
 
-datatable(outersect_go, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 5', class = 'cell-border stripe')
+datatable(outersect_ego_ZNF414, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 4', class = 'cell-border stripe')
 ```
 
-## 7.1) What is your interpretation of these results? 
 
-## 7.2) What future directions could you propose to follow up on these findings?
+## 5.1) What is your interpretation of these results? 
+
+## 5.2) What future directions could you propose to follow up on these findings?

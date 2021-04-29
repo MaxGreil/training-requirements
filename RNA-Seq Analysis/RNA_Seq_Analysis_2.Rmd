@@ -213,12 +213,12 @@ resdf2 <- resdf %>%
   mutate(padj = case_when(padj == 0 ~ .Machine$double.xmin, TRUE ~ padj)) %>%
   mutate(gsea_metric = -log10(padj) * sign(log2FoldChange)) %>%
   # Remove NAs and order by GSEA
-  filter(! is.na(gsea_metric)) %>%
+  dplyr::filter(! is.na(gsea_metric)) %>%
   arrange(desc(gsea_metric))
 
 # Get the ranked GSEA vector
 ranks <- resdf2 %>%
-  select(SYMBOL, gsea_metric) %>%
+  dplyr::select(SYMBOL, gsea_metric) %>%
   distinct(SYMBOL, .keep_all = TRUE) %>%
   deframe()
 ```
@@ -344,6 +344,8 @@ datatable(sig_gsearesdf, options=list(scrollX = TRUE, scrollY = TRUE), caption =
 
 As stated at the beginning, the biological question of this study was to clarify the lineage relationship between IL3Rαhigh- and IL3Rαlow precursor cells and to find potential molecules involved in their differentiation.\
 
+The original paper:\
+
 The [original paper](https://doi.org/10.1016/j.stemcr.2015.04.012) categorized the IL3Rαlow subset as common progenitor of granulocytes (GR), macrophages (MΦ), Osteoclasts (OC), and dendritic cells (DC) (**GMODP, common progenitor of GR, MΦ, OC, and DC**) and the IL3Rαhigh as common progenitor of MΦ, OC, and DC (**MODP, common progenitor of MΦ, OC, and DC**).\
 
 OCs, MΦs, and DCs are closely related hematopoietic cell lines (blood cells).\
@@ -352,13 +354,41 @@ However, in cancer and autoimmune and inflammatory diseases, OCs can be promoted
 
 According to the original paper, a ingenuity pathway analysis (IPA) of DEGs indicated a further commitment to MΦ/OC/DC differentiation in the transition from the IL3Rαlow to the IL3Rαhigh phenotype. Additionally, the IL3Rαhigh subset showed higher mRNA expression of transcription factors important for pDC, cDC, and MΦ development.\
 
-This RNA-Seq analysis was able to reproduce results from the original study.\
+This RNA-Seq analysis:\
+
+We will concentrate on the top 5 over-expressed pathways we found via our GSEA:\
+
+Two over-expressed pathways were related to tertiary granule:\
+
+Term [GO_TERTIARY_GRANULE](https://www.gsea-msigdb.org/gsea/msigdb/cards/GOCC_TERTIARY_GRANULE.html) describes "[a] secretory granule that contains cathepsin and gelatinase and is readily exocytosed upon cell activation; found primarily in mature neutrophil cells."\
+
+Term [GO_TERTIARY_GRANULE_MEMBRANE](https://www.gsea-msigdb.org/gsea/msigdb/cards/GOCC_TERTIARY_GRANULE_MEMBRANE.html) describes "[t]he lipid bilayer surrounding a tertiary granule".\
+
+It was an interesting result that these pathways were upregulated as the original paper categorized the IL3Rαlow subset as common progenitor for GR and not IL3Rαhigh.\
+
+One over-expressed pathway was related to immune receptor activity:\
+
+Term [GO_IMMUNE_RECEPTOR_ACTIVITY](https://www.gsea-msigdb.org/gsea/msigdb/cards/GOMF_IMMUNE_RECEPTOR_ACTIVITY.html) describes "[r]eceiving a signal and transmitting it in a cell to initiate an immune response".\
+
+Both IL3Rαhigh- and IL3Rαlow precursor cells play an important role as common progenitor cells in the differentiation of cells involved in the human immune system. Therefore, an over-expressed GSEA pathway to initiate an immune response aligns with our expectations of this analysis.\
+
+One over-expressed pathway was related to interferon-gamma signaling pathway:\
+
+Term [GO_INTERFERON_GAMMA_MEDIATED_SIGNALING_PATHWAY](https://www.gsea-msigdb.org/gsea/msigdb/cards/GOBP_INTERFERON_GAMMA_MEDIATED_SIGNALING_PATHWAY.html) describes "[a] series of molecular signals initiated by the binding of interferon-gamma to a receptor on the surface of a cell, and ending with regulation of a downstream cellular process, e.g. transcription. Interferon gamma is the only member of the type II interferon found so far".\
+
+Interferon-gamma is formed in the course of the innate immune response and responsible for, among other things, the activation of MΦs. As before, this result also aligns with the results from the original paper.\
+
+The last of the top 5 over-expressed pathways was related to abnormality of the paranasal sinuses, Term HP_ABNORMALITY_OF_THE_PARANASAL_SINUSES. This was an odd result, as it was not directly connected to hematopoietic cells in the human immune system.\
+
+We conclude that our RNA-Seq analysis was able to reproduce the findings of the original paper, i.e. our identified top 5 over-expressed directly relate to hematopoietic cells and the human immune system.
 
 ### 6.2) What does this tell us about development of the immune system?
 
 Hematopoietic cells play an important role in the immune systems. The results from the  original study showed that the IL3Rα expression level discriminates two successive stages in commitment toward the OC, MΦ, and DC fate.\
 
-The concentration of certain factors (in our example IL3Rαlow and IL3Rαhigh) contribute to the explained differentiation of pluripotent progenitor cells.
+The concentration of certain factors (in our example IL3Rαlow and IL3Rαhigh) contribute to the explained differentiation of pluripotent progenitor cells.\
+
+However, in cancer and autoimmune and inflammatory diseases, over- and under-expression of IL3Rαlow and IL3Rαhigh can be promoted by tumors or immune cells, which facilitates bone metastasis, pathological bone loss, and remodeling.
 
 ### 6.3) Why does this matter within the context of the developmental biology field?
 
