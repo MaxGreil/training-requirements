@@ -227,25 +227,25 @@ overlaps_egodf <- overlaps_ego %>%
 
 ### 4.1) What are genes and pathways/genesets shared in the overlap between PRDM1 and ZNF414? 
 
-**Table 1** shows the genes shared in the overlap between PRDM1 and ZNF414.
+**Table 1** shows the identified 1853 genes shared in the overlap between PRDM1 and ZNF414.
 
 ```{r}
 intersect_genes <- grch38 %>% 
   filter(entrez %in% overlaps_annot$geneId) %>%
   select(-chr, -strand, -biotype)
 
-datatable(intersect_genes, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 1', class = 'cell-border stripe')
+datatable(intersect_genes, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 1: Genes in the overlap between PRDM1 and ZNF414', class = 'cell-border stripe')
 ```
 
-**Table 2** shows the pathways/genesets shared in the overlap between PRDM1 and ZNF414.
+**Table 2** shows the 131 pathways/genesets shared in the overlap between PRDM1 and ZNF414.
 
 ```{r}
-datatable(overlaps_egodf, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 2', class = 'cell-border stripe')
+datatable(overlaps_egodf, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 2: Pathways/genesets in the overlap between PRDM1 and ZNF414', class = 'cell-border stripe')
 ```
 
 ### 4.2) What pathways differ? 
 
-**Table 3** shows the pathways that differ between the overlap and PRDM1.
+**Table 3** shows the 24 pathways that differ between the overlap and PRDM1, i.e. pathways that are in the overlap but not in PRDM1.
 
 ```{r}
 outersect_ego_PRDM1 <- overlaps_egodf %>%
@@ -256,10 +256,10 @@ outersect_ego_PRDM1 <- overlaps_egodf %>%
 
 outersect_ego_PRDM1 <- column_to_rownames(outersect_ego_PRDM1, var = "rowname")
 
-datatable(outersect_ego_PRDM1, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 3', class = 'cell-border stripe')
+datatable(outersect_ego_PRDM1, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 3: Pathways that differ between the overlap and PRDM1', class = 'cell-border stripe')
 ```
 
-**Table 4** shows the pathways that differ between the overlap and ZNF414.
+**Table 4** shows the 12 pathways that differ between the overlap and ZNF414, i.e. pathways that are in the overlap but not in ZNF414.
 
 ```{r}
 outersect_ego_ZNF414 <- overlaps_egodf %>%
@@ -270,10 +270,33 @@ outersect_ego_ZNF414 <- overlaps_egodf %>%
 
 outersect_ego_ZNF414 <- column_to_rownames(outersect_ego_ZNF414, var = "rowname")
 
-datatable(outersect_ego_ZNF414, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 4', class = 'cell-border stripe')
+datatable(outersect_ego_ZNF414, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 4: Pathways that differ between the overlap and ZNF414', class = 'cell-border stripe')
 ```
 
 
 ## 5.1) What is your interpretation of these results? 
 
+The goal of this ChIP-Seq analysis was analyze ChIP-Seq data sets `PRDM1` and `ZNF414`.\
+
+As said before, gene `PRDM1` encodes protein `PR domain zinc finger protein 1`/`B lymphocyte-induced maturation protein-1 (BLIMP-1)`, which plays a significant role in B cell development and antibody production and gene `ZNF414` encodes protein `Zinc Finger Protein 414`, which function is not clear but may be involved in transcriptional regulation.\
+
+These two data sets were chosen because an analysis of significant overlaps could enable more inside on how these two proteins may form a complex or have interaction in regulation chromosome remodelling or gene expression.\
+
+As show in the venn diagram, we found 2106 peaks in the overlap between `PRDM1` and `ZNF414`.\
+
+The genomic element distribution for the overlaps showed that on the exon level, 53.3% belonged to 5' UTR, on the exon/intron/intergenic level 68.1% belonged to exon, on the gene level 53.9% belonged to promotor and on the promotor level 46.6% belonged to TSS - 500b.\
+
+Overall, this result shows that the identified overlaps between `PRDM1` and `ZNF414` belonged to coding regions and more specifically, to TSS, which is an interesting result considering the unknown interactions in regulation chromosome remodelling or gene expression between the two.\
+
+When we have a look at the top 5 pathway after our gene set enrichment analysis for the overlaps, we can see that they belong to RNA processes, e.g.:
+
+- [ribonucleoprotein complex biogenesis](https://www.ebi.ac.uk/QuickGO/term/GO:0022613)
+- [RNA catabolic process](https://www.ebi.ac.uk/QuickGO/term/GO:0006401)
+- [RNA splicing](https://www.ebi.ac.uk/QuickGO/term/GO:0008380)
+
+This could be an indicator that the identified overlaps between `PRDM1` and `ZNF414` consist of regions with genes involved in transcription and seems to confirm the assumption that `ZNF414` may be involved in transcriptional regulation. This assumption could also further be validated by our pathways that differ between the overlaps and `PRDM1` and `ZNF414`. The identified different pathways all seem to be related to transcriptional regulation.
+
 ## 5.2) What future directions could you propose to follow up on these findings?
+
+One direction for future research would be how these overlaps between `PRDM1` and `ZNF414` are involved in transcriptional regulation play a role in B cell development and antibody production. `ZNF414` may be more important for the regulation of `PRDM1` than previously thought.
+

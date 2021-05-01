@@ -356,31 +356,45 @@ According to the original paper, a ingenuity pathway analysis (IPA) of DEGs indi
 
 This RNA-Seq analysis:\
 
-We will concentrate on the top 5 over-expressed pathways we found via our GSEA:\
+First, we had a look at the top 5 over-expressed pathways we found via our GSEA:\
+
+Goal was to find connections between our results and the original study, i.e. the impact of IL3Rαhigh- and IL3Rαlow precursor cells on the differentiation of hematopoietic cells and development of the human immune system.\
 
 Two over-expressed pathways were related to tertiary granule:\
 
 Term [GO_TERTIARY_GRANULE](https://www.gsea-msigdb.org/gsea/msigdb/cards/GOCC_TERTIARY_GRANULE.html) describes "[a] secretory granule that contains cathepsin and gelatinase and is readily exocytosed upon cell activation; found primarily in mature neutrophil cells."\
 
-Term [GO_TERTIARY_GRANULE_MEMBRANE](https://www.gsea-msigdb.org/gsea/msigdb/cards/GOCC_TERTIARY_GRANULE_MEMBRANE.html) describes "[t]he lipid bilayer surrounding a tertiary granule".\
+Term [GO_TERTIARY_GRANULE_MEMBRANE](https://www.gsea-msigdb.org/gsea/msigdb/cards/GOCC_TERTIARY_GRANULE_MEMBRANE.html) describes "the lipid bilayer surrounding a tertiary granule".\
 
 It was an interesting result that these pathways were upregulated as the original paper categorized the IL3Rαlow subset as common progenitor for GR and not IL3Rαhigh.\
 
 One over-expressed pathway was related to immune receptor activity:\
 
-Term [GO_IMMUNE_RECEPTOR_ACTIVITY](https://www.gsea-msigdb.org/gsea/msigdb/cards/GOMF_IMMUNE_RECEPTOR_ACTIVITY.html) describes "[r]eceiving a signal and transmitting it in a cell to initiate an immune response".\
+Term [GO_IMMUNE_RECEPTOR_ACTIVITY](https://www.gsea-msigdb.org/gsea/msigdb/cards/GOMF_IMMUNE_RECEPTOR_ACTIVITY.html) describes "receiving a signal and transmitting it in a cell to initiate an immune response".\
 
 Both IL3Rαhigh- and IL3Rαlow precursor cells play an important role as common progenitor cells in the differentiation of cells involved in the human immune system. Therefore, an over-expressed GSEA pathway to initiate an immune response aligns with our expectations of this analysis.\
 
 One over-expressed pathway was related to interferon-gamma signaling pathway:\
 
-Term [GO_INTERFERON_GAMMA_MEDIATED_SIGNALING_PATHWAY](https://www.gsea-msigdb.org/gsea/msigdb/cards/GOBP_INTERFERON_GAMMA_MEDIATED_SIGNALING_PATHWAY.html) describes "[a] series of molecular signals initiated by the binding of interferon-gamma to a receptor on the surface of a cell, and ending with regulation of a downstream cellular process, e.g. transcription. Interferon gamma is the only member of the type II interferon found so far".\
+Term [GO_INTERFERON_GAMMA_MEDIATED_SIGNALING_PATHWAY](https://www.gsea-msigdb.org/gsea/msigdb/cards/GOBP_INTERFERON_GAMMA_MEDIATED_SIGNALING_PATHWAY.html) describes "a series of molecular signals initiated by the binding of interferon-gamma to a receptor on the surface of a cell, and ending with regulation of a downstream cellular process, e.g. transcription.".\
 
 Interferon-gamma is formed in the course of the innate immune response and responsible for, among other things, the activation of MΦs. As before, this result also aligns with the results from the original paper.\
 
 The last of the top 5 over-expressed pathways was related to abnormality of the paranasal sinuses, Term HP_ABNORMALITY_OF_THE_PARANASAL_SINUSES. This was an odd result, as it was not directly connected to hematopoietic cells in the human immune system.\
 
-We conclude that our RNA-Seq analysis was able to reproduce the findings of the original paper, i.e. our identified top 5 over-expressed directly relate to hematopoietic cells and the human immune system.
+Then, we had a look at the identified top 20 over-expressed DEGs for IL3Rαhigh precursor cells.\
+
+A sample of the identified DEGS reproduced the results of the original paper:\
+
+- Gene [CUX2](https://www.uniprot.org/uniprot/O14529#function), among other things, "regulates dendrite development and branching and dendritic spine formation".
+
+- Gene [SPIB](https://www.uniprot.org/uniprot/Q01892#function), among other things, "promotes development of plasmacytoid dendritic cells (pDCs)".
+
+- Gene [CLEC4C](https://www.uniprot.org/uniprot/Q8WTT0#function), among other things, "is a cell surface receptor which may play a role in antigen capturing by dendritic cells".
+
+- Gene [SAMHD1](https://www.uniprot.org/uniprot/Q9Y3Z3#function), among other things, "plays a role in regulation of the innate immune response".
+
+From this RNA-Seq analysis it was difficult to clarify the lineage relationship between IL3Rαhigh- and IL3Rαlow precursor cells and to find potential molecules involved in their differentiation. Nevertheless, we clearly showed that our RNA-Seq analysis was able to reproduce results of the original paper, i.e. our identified top 5 over-expressed pathways and top 20 over-expressed DEGs directly relate to hematopoietic cells and the human immune system.
 
 ### 6.2) What does this tell us about development of the immune system?
 
