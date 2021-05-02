@@ -23,6 +23,7 @@ suppressMessages(library(ChIPseeker))
 suppressMessages(library(DT))
 suppressMessages(library(annotables))
 suppressMessages(library(tidyverse))
+suppressMessages(library(msigdbr))
 ```
 
 ## 0) Load data
@@ -67,7 +68,9 @@ makeVennDiagram(ol, fill=c("#009E73", "#F0E442"), # circle fill color
 
 ### 2.1) Heatmap of ChIP binding to TSS regions
 
-First, for calculating the profile of ChIP peaks binding to TSS regions, we prepared the TSS regions, which are defined as the flanking sequence of the TSS sites. Therefore, we aligned the peaks that mapped to these regions.
+First, for calculating the profile of ChIP peaks binding to TSS regions, we prepared the TSS regions, which are defined as the flanking sequence of the TSS sites. Therefore, we aligned the peaks that mapped to these regions.\
+
+`PRDM1///ZNF414` stands for the overlaps between `PRDM1` and `ZNF414`.
 
 ```{r}
 promoter <- getPromoters(TxDb=txdb, upstream=3000, downstream=3000)
@@ -75,13 +78,18 @@ promoter <- getPromoters(TxDb=txdb, upstream=3000, downstream=3000)
 tagMatrix_PRDM1 <- getTagMatrix(PRDM1, windows=promoter)
 tagMatrix_ZNF414 <- getTagMatrix(ZNF414, windows=promoter)
 
-tagHeatmap(list(PRDM1=tagMatrix_PRDM1, ZNF414=tagMatrix_ZNF414), xlim=c(-3000, 3000), color="red")
+# Get overlapped peaks for PRDM1 and ZNF414
+overlaps <- ol$peaklist[["PRDM1///ZNF414"]]
+
+tagMatrix_overlaps <- getTagMatrix(overlaps, windows=promoter)
+
+tagHeatmap(list(PRDM1=tagMatrix_PRDM1, ZNF414=tagMatrix_ZNF414, "PRDM1///ZNF414"=tagMatrix_overlaps), xlim=c(-3000, 3000), color="red")
 ```
 
 ### 2.2) Average Profile of ChIP peaks binding to TSS region
 
 ```{r}
-plotAvgProf(list(PRDM1=tagMatrix_PRDM1, ZNF414=tagMatrix_ZNF414), xlim=c(-3000, 3000),
+plotAvgProf(list(PRDM1=tagMatrix_PRDM1, ZNF414=tagMatrix_ZNF414, "PRDM1///ZNF414"=tagMatrix_overlaps), xlim=c(-3000, 3000),
             xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency")
 ```
 
@@ -90,9 +98,6 @@ plotAvgProf(list(PRDM1=tagMatrix_PRDM1, ZNF414=tagMatrix_ZNF414), xlim=c(-3000, 
 ```{r}
 # Annotation data should be an object of GRanges.
 annoData <- toGRanges(txdb, feature="gene")
-
-# Get overlapped peaks for PRDM1 and ZNF414
-overlaps <- ol$peaklist[["PRDM1///ZNF414"]]
 
 # Plot distribution of the distance of overlapped peaks to transcription start sites (TSS)
 binOverFeature(overlaps, annotationData=annoData,
@@ -117,7 +122,23 @@ genomicElementDistribution(peaks,
                            geneDownstream=c(upstream=0, downstream=2000))
 ```
 
-We created upsetplots for `PRMD1` and `ZNF414`.
+We also checked the genomic element distribution for the overlaps.
+
+```{r}
+out <- genomicElementDistribution(overlaps, 
+                           TxDb = txdb,
+                           promoterRegion=c(upstream=2000, downstream=500),
+                           geneDownstream=c(upstream=0, downstream=2000),
+                           promoterLevel=list(
+                         # from 5' -> 3', fixed precedence 3' -> 5'
+                             breaks = c(-2000, -1000, -500, 0, 500),
+                             labels = c("upstream 1-2Kb", "upstream 0.5-1Kb", 
+                                        "upstream <500b", "TSS - 500b"),
+                             colors = c("#FFE5CC", "#FFCA99", 
+                                        "#FFAD65", "#FF8E32")))
+```
+
+We created upsetplots for `PRMD1`, `ZNF414` and the overlaps.
 
 ```{r}
 # Assign genes to PRDM1 peaks
@@ -135,49 +156,49 @@ peakAnno_ZNF414 <- annotatePeak(ZNF414, tssRegion=c(-3000, 3000),
 upsetplot(peakAnno_ZNF414)  + ggtitle("Upsetplot ZNF414")
 ```
 
+```{r}
+# Assign genes to overlaps peaks
+peakAnno_overlaps <- annotatePeak(overlaps, tssRegion=c(-3000, 3000),
+                         TxDb=txdb, annoDb="org.Hs.eg.db", verbose=FALSE)
+
+upsetplot(peakAnno_overlaps)  + ggtitle("Upsetplot PRDM1///ZNF414")
+```
+
 We calculated the percentage of binding sites upstream and downstream from the TSS of the nearest genes and visualized the distribution.
 
 ```{r}
-plotDistToTSS(list(PRDM1=peakAnno_PRDM1, ZNF414=peakAnno_ZNF414), title="Distribution of transcription factor-binding loci \n relative to TSS")
-```
-
-We also checked the genomic element distribution for the overlaps.
-
-```{r}
-out <- genomicElementDistribution(overlaps, 
-                           TxDb = txdb,
-                           promoterRegion=c(upstream=2000, downstream=500),
-                           geneDownstream=c(upstream=0, downstream=2000),
-                           promoterLevel=list(
-                         # from 5' -> 3', fixed precedence 3' -> 5'
-                             breaks = c(-2000, -1000, -500, 0, 500),
-                             labels = c("upstream 1-2Kb", "upstream 0.5-1Kb", 
-                                        "upstream <500b", "TSS - 500b"),
-                             colors = c("#FFE5CC", "#FFCA99", 
-                                        "#FFAD65", "#FF8E32")))
+plotDistToTSS(list(PRDM1=peakAnno_PRDM1, ZNF414=peakAnno_ZNF414, "PRDM1///ZNF414"=peakAnno_overlaps), title="Distribution of transcription factor-binding loci \n relative to TSS")
 ```
 
 ## 4) Assign peaks to genes – then perform pathway enrichment.
 
+For enrichment of the annotated peaks R package `clusterProfiler` function `enricher` was used. For the enrichment we used ontology gene sets of species Homo sapiens from R package `msigdbr`. The found pathway enrichment was then finally filtered to contain only terms with an adjusted p-value greater than or equal 0.05.
+
 ```{r}
+# Ensure a deterministic result for enricher
+set.seed(5)
+
+# Get the gene sets
+gene_sets <- msigdbr(species = "Homo sapiens", category = "C5") # C5: ontology gene sets
+term2gene <- gene_sets[, c("gs_exact_source", "entrez_gene")]
+term2name <- gene_sets[, c("gs_exact_source", "gs_name")]
+
 # Get annotation data frame
 PRDM1_annot <- as.data.frame(peakAnno_PRDM1@anno)
 
+# clusterProfiler provides enricher function for hypergeometric test 
 # Performed pathway enrichment for PRDM1
-PRDM1_ego <- enrichGO(gene = PRDM1_annot$geneId, 
-                    keyType = "ENTREZID", 
-                    OrgDb = org.Hs.eg.db, 
-                    ont = "BP", # Biological Process 
-                    pAdjustMethod = "BH", 
-                    qvalueCutoff = 0.05, 
-                    readable = TRUE)
+PRDM1_enrichr <- enricher(PRDM1_annot$geneId,
+                  pAdjustMethod = "BH",
+                  qvalueCutoff = 0.05,
+                  TERM2GENE=term2gene, 
+                  TERM2NAME=term2name)
 
-PRDM1_egodf <- PRDM1_ego %>%
+PRDM1_enrichrdf <- PRDM1_enrichr %>%
   filter(p.adjust <= 0.05) %>%
   arrange(desc(Count)) %>%
   select(Description, p.adjust, geneID, Count) %>%
   .@result
-
 ```
 
 ```{r}
@@ -185,40 +206,31 @@ PRDM1_egodf <- PRDM1_ego %>%
 ZNF414_annot <- as.data.frame(peakAnno_ZNF414@anno)
 
 # Performed pathway enrichment for ZNF414
-ZNF414_ego <- enrichGO(gene = ZNF414_annot$geneId, 
-                    keyType = "ENTREZID", 
-                    OrgDb = org.Hs.eg.db, 
-                    ont = "BP", # Biological Process 
-                    pAdjustMethod = "BH", 
-                    qvalueCutoff = 0.05, 
-                    readable = TRUE)
+ZNF414_enrichr <- enricher(ZNF414_annot$geneId,
+                  pAdjustMethod = "BH",
+                  qvalueCutoff = 0.05,
+                  TERM2GENE=term2gene, 
+                  TERM2NAME=term2name)
 
-ZNF414_egodf <- ZNF414_ego %>%
+ZNF414_enrichrdf <- ZNF414_enrichr %>%
   filter(p.adjust <= 0.05) %>%
   arrange(desc(Count)) %>%
   select(Description, p.adjust, geneID, Count) %>%
   .@result
-
 ```
 
 ```{r}
-# Assign genes to overlaps peaks
-peakAnno_overlaps <- annotatePeak(overlaps, tssRegion=c(-3000, 3000),
-                         TxDb=txdb, annoDb="org.Hs.eg.db", verbose=FALSE)
-
 # Get annotation data frame
 overlaps_annot <- as.data.frame(peakAnno_overlaps@anno)
 
 # Performed pathway enrichment for overlaps
-overlaps_ego <- enrichGO(gene = overlaps_annot$geneId, 
-                    keyType = "ENTREZID", 
-                    OrgDb = org.Hs.eg.db, 
-                    ont = "BP", # Biological Process 
-                    pAdjustMethod = "BH", 
-                    qvalueCutoff = 0.05, 
-                    readable = TRUE)
+overlaps_enrichr <- enricher(overlaps_annot$geneId,
+                  pAdjustMethod = "BH",
+                  qvalueCutoff = 0.05,
+                  TERM2GENE=term2gene, 
+                  TERM2NAME=term2name)
 
-overlaps_egodf <- overlaps_ego %>%
+overlaps_enrichrdf <- overlaps_enrichr %>%
   filter(p.adjust <= 0.05) %>%
   arrange(desc(Count)) %>%
   select(Description, p.adjust, geneID, Count) %>%
@@ -237,40 +249,40 @@ intersect_genes <- grch38 %>%
 datatable(intersect_genes, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 1: Genes in the overlap between PRDM1 and ZNF414', class = 'cell-border stripe')
 ```
 
-**Table 2** shows the 131 pathways/genesets shared in the overlap between PRDM1 and ZNF414.
+**Table 2** shows the 155 pathways/genesets shared in the overlap between PRDM1 and ZNF414.
 
 ```{r}
-datatable(overlaps_egodf, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 2: Pathways/genesets in the overlap between PRDM1 and ZNF414', class = 'cell-border stripe')
+datatable(overlaps_enrichrdf, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 2: Pathways/genesets in the overlap between PRDM1 and ZNF414', class = 'cell-border stripe')
 ```
 
 ### 4.2) What pathways differ? 
 
-**Table 3** shows the 24 pathways that differ between the overlap and PRDM1, i.e. pathways that are in the overlap but not in PRDM1.
+**Table 3** shows the 37 pathways that differ between the overlap and PRDM1, i.e. pathways that are in the overlap but not in PRDM1.
 
 ```{r}
-outersect_ego_PRDM1 <- overlaps_egodf %>%
+outersect_enrichr_PRDM1 <- overlaps_enrichrdf %>%
   rownames_to_column() %>%
-  filter(!rowname %in% rownames(PRDM1_egodf)) %>%
+  filter(!rowname %in% rownames(PRDM1_enrichrdf)) %>%
   arrange(desc(Count)) %>%
   select(-p.adjust, -Count)
 
-outersect_ego_PRDM1 <- column_to_rownames(outersect_ego_PRDM1, var = "rowname")
+outersect_enrichr_PRDM1 <- column_to_rownames(outersect_enrichr_PRDM1, var = "rowname")
 
-datatable(outersect_ego_PRDM1, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 3: Pathways that differ between the overlap and PRDM1', class = 'cell-border stripe')
+datatable(outersect_enrichr_PRDM1, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 3: Pathways that differ between the overlap and PRDM1', class = 'cell-border stripe')
 ```
 
-**Table 4** shows the 12 pathways that differ between the overlap and ZNF414, i.e. pathways that are in the overlap but not in ZNF414.
+**Table 4** shows the 22 pathways that differ between the overlap and ZNF414, i.e. pathways that are in the overlap but not in ZNF414.
 
 ```{r}
-outersect_ego_ZNF414 <- overlaps_egodf %>%
+outersect_enrichr_ZNF414 <- overlaps_enrichrdf %>%
   rownames_to_column() %>%
-  filter(!rowname %in% rownames(ZNF414_egodf)) %>%
+  filter(!rowname %in% rownames(ZNF414_enrichrdf)) %>%
   arrange(desc(Count)) %>%
   select(-p.adjust, -Count)
 
-outersect_ego_ZNF414 <- column_to_rownames(outersect_ego_ZNF414, var = "rowname")
+outersect_enrichr_ZNF414 <- column_to_rownames(outersect_enrichr_ZNF414, var = "rowname")
 
-datatable(outersect_ego_ZNF414, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 4: Pathways that differ between the overlap and ZNF414', class = 'cell-border stripe')
+datatable(outersect_enrichr_ZNF414, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 4: Pathways that differ between the overlap and ZNF414', class = 'cell-border stripe')
 ```
 
 
@@ -286,15 +298,35 @@ As show in the venn diagram, we found 2106 peaks in the overlap between `PRDM1` 
 
 The genomic element distribution for the overlaps showed that on the exon level, 53.3% belonged to 5' UTR, on the exon/intron/intergenic level 68.1% belonged to exon, on the gene level 53.9% belonged to promotor and on the promotor level 46.6% belonged to TSS - 500b.\
 
-Overall, this result shows that the identified overlaps between `PRDM1` and `ZNF414` belonged to coding regions and more specifically, to TSS, which is an interesting result considering the unknown interactions in regulation chromosome remodelling or gene expression between the two.\
+Overall, our results show that the identified overlaps between `PRDM1` and `ZNF414` belonged to coding regions and more specifically, to TSS, which is an interesting result considering the unknown interactions in regulation chromosome remodelling or gene expression between the two.\
 
-When we have a look at the top 5 pathway after our gene set enrichment analysis for the overlaps, we can see that they belong to RNA processes, e.g.:
+We then have a look at the top 5 pathway after our gene set enrichment analysis for the overlaps between `PRDM1` and `ZNF414`:\
 
+We can see that two of them belong to RNA processes:
+
+- [RNA catabolic process](https://www.ebi.ac.uk/QuickGO/term/GO:0006401)\
 - [ribonucleoprotein complex biogenesis](https://www.ebi.ac.uk/QuickGO/term/GO:0022613)
-- [RNA catabolic process](https://www.ebi.ac.uk/QuickGO/term/GO:0006401)
-- [RNA splicing](https://www.ebi.ac.uk/QuickGO/term/GO:0008380)
 
-This could be an indicator that the identified overlaps between `PRDM1` and `ZNF414` consist of regions with genes involved in transcription and seems to confirm the assumption that `ZNF414` may be involved in transcriptional regulation. This assumption could also further be validated by our pathways that differ between the overlaps and `PRDM1` and `ZNF414`. The identified different pathways all seem to be related to transcriptional regulation.
+
+One belongs to the nuclear cellular component nuclear envelope:
+
+- [nuclear envelope](https://www.ebi.ac.uk/QuickGO/term/GO:0005635)
+
+
+And two belong to ncRNA processes:
+
+- [ncRNA metabolic process](https://www.ebi.ac.uk/QuickGO/term/GO:0034660)\
+- [ncRNA processing](https://www.ebi.ac.uk/QuickGO/term/GO:0034470)
+
+This could be an indicator that the identified overlaps between `PRDM1` and `ZNF414` consist of regions with genes involved in transcription and seems to confirm the assumption that `ZNF414` may be involved in transcriptional regulation.\
+
+This assumption could also further be validated by our pathways that differ between the overlaps and `PRDM1` and `ZNF414`.\
+
+The different pathways between the overlaps and `PRDM1` seem to mainly relate to chromatin / chromosome / transcriptional processes, e.g. [covalent chromatin modification](https://www.ebi.ac.uk/QuickGO/term/GO:0016569), [regulation of chromosome organization](https://www.ebi.ac.uk/QuickGO/term/GO:0033044) and [ribosome](https://www.ebi.ac.uk/QuickGO/term/GO:0005840).\
+
+The different pathways between the overlaps and `ZNF414` showed partially similar results, like e.g. [regulation of posttranscriptional gene silencing](https://www.ebi.ac.uk/QuickGO/GTerm?id=GO:0060147) but also unrelated terms like e.g. [abnormal uterus morphology](http://www.gsea-msigdb.org/gsea/msigdb/geneset_page.jsp?geneSetName=HP_ABNORMAL_UTERUS_MORPHOLOGY).\
+
+Overall, most of the identified pathways in the overlaps between `PRDM1` and `ZNF414` seem to be related to transcriptional regulation.
 
 ## 5.2) What future directions could you propose to follow up on these findings?
 
