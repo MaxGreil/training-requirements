@@ -17,7 +17,6 @@ knitr::opts_chunk$set(warning = FALSE)
 suppressMessages(library(UpSetR))
 suppressMessages(library(ChIPpeakAnno))
 suppressMessages(library(TxDb.Hsapiens.UCSC.hg38.knownGene))
-suppressMessages(library(org.Hs.eg.db))
 suppressMessages(library(clusterProfiler))
 suppressMessages(library(ChIPseeker))
 suppressMessages(library(DT))
@@ -91,19 +90,6 @@ tagHeatmap(list(PRDM1=tagMatrix_PRDM1, ZNF414=tagMatrix_ZNF414, "PRDM1///ZNF414"
 ```{r}
 plotAvgProf(list(PRDM1=tagMatrix_PRDM1, ZNF414=tagMatrix_ZNF414, "PRDM1///ZNF414"=tagMatrix_overlaps), xlim=c(-3000, 3000),
             xlab="Genomic Region (5'->3')", ylab = "Read Count Frequency")
-```
-
-### 2.3) Plot distribution of the distance of overlapped peaks between PRDM1 and ZNF414 to TSS
-
-```{r}
-# Annotation data should be an object of GRanges.
-annoData <- toGRanges(txdb, feature="gene")
-
-# Plot distribution of the distance of overlapped peaks to transcription start sites (TSS)
-binOverFeature(overlaps, annotationData=annoData,
-               radius=3000, FUN=length, errFun=0,
-               xlab="distance from TSS (bp)", ylab="count", 
-               main="Distribution of aggregated peak numbers around TSS")
 ```
 
 ## 3) Annotate the peaks for genomic features such as intron, exon, 3’UTR, etc and compare the annotations between between PRDM1 and ZNF414
