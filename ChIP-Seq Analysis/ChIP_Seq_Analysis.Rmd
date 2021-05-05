@@ -23,6 +23,7 @@ suppressMessages(library(DT))
 suppressMessages(library(annotables))
 suppressMessages(library(tidyverse))
 suppressMessages(library(msigdbr))
+suppressMessages(library(rWikiPathways))
 ```
 
 ## 0) Load data
@@ -168,7 +169,9 @@ set.seed(5)
 gene_sets <- msigdbr(species = "Homo sapiens", category = "C5") # C5: ontology gene sets
 term2gene <- gene_sets[, c("gs_exact_source", "entrez_gene")]
 term2name <- gene_sets[, c("gs_exact_source", "gs_name")]
+```
 
+```{r}
 # Get annotation data frame
 PRDM1_annot <- as.data.frame(peakAnno_PRDM1@anno)
 
@@ -223,7 +226,60 @@ overlaps_enrichrdf <- overlaps_enrichr %>%
   .@result
 ```
 
-### 4.1) What are genes and pathways/genesets shared in the overlap between PRDM1 and ZNF414? 
+Additionally to the ontology gene sets from R package `msigdbr`, we performed another gene enrichment analysis with pathway content from WikiPathways using R package `rWikiPathways`.
+
+```{r}
+wp2gene <- rWikiPathways::downloadPathwayArchive(organism="Homo sapiens", format = "gmt") %>% readPathwayGMT
+wpid2gene <- wp2gene %>% dplyr::select(wpid,gene) #TERM2GENE
+wpid2name <- wp2gene %>% dplyr::select(wpid,name) #TERM2NAME
+```
+
+```{r}
+# Performed pathway enrichment for PRDM1
+PRDM1_enrichr_wiki <- enricher(PRDM1_annot$geneId,
+                  pAdjustMethod = "BH",
+                  qvalueCutoff = 0.05,
+                  TERM2GENE=wpid2gene, 
+                  TERM2NAME=wpid2name)
+
+PRDM1_enrichr_wikidf <- PRDM1_enrichr_wiki %>%
+  filter(p.adjust <= 0.05) %>%
+  arrange(desc(Count)) %>%
+  select(Description, p.adjust, geneID, Count) %>%
+  .@result
+```
+
+```{r}
+# Performed pathway enrichment for ZNF414
+ZNF414_enrichr_wiki <- enricher(ZNF414_annot$geneId,
+                  pAdjustMethod = "BH",
+                  qvalueCutoff = 0.05,
+                  TERM2GENE=wpid2gene, 
+                  TERM2NAME=wpid2name)
+
+ZNF414_enrichr_wikidf <- ZNF414_enrichr_wiki %>%
+  filter(p.adjust <= 0.05) %>%
+  arrange(desc(Count)) %>%
+  select(Description, p.adjust, geneID, Count) %>%
+  .@result
+```
+
+```{r}
+# Performed pathway enrichment for overlaps
+overlaps_enrichr_wiki <- enricher(overlaps_annot$geneId,
+                  pAdjustMethod = "BH",
+                  qvalueCutoff = 0.05,
+                  TERM2GENE=wpid2gene, 
+                  TERM2NAME=wpid2name)
+
+overlaps_enrichr_wikidf <- overlaps_enrichr_wiki %>%
+  filter(p.adjust <= 0.05) %>%
+  arrange(desc(Count)) %>%
+  select(Description, p.adjust, geneID, Count) %>%
+  .@result
+```
+
+### 4.1) What are genes shared in the overlap between PRDM1 and ZNF414? 
 
 **Table 1** shows the identified 1853 genes shared in the overlap between PRDM1 and ZNF414.
 
@@ -235,13 +291,15 @@ intersect_genes <- grch38 %>%
 datatable(intersect_genes, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 1: Genes in the overlap between PRDM1 and ZNF414', class = 'cell-border stripe')
 ```
 
+### 4.2) What are pathways/genesets shared in the overlap between PRDM1 and ZNF414 for ontology gene sets from R package <code>msigdbr</code>? 
+
 **Table 2** shows the 155 pathways/genesets shared in the overlap between PRDM1 and ZNF414.
 
 ```{r}
 datatable(overlaps_enrichrdf, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 2: Pathways/genesets in the overlap between PRDM1 and ZNF414', class = 'cell-border stripe')
 ```
 
-### 4.2) What pathways differ? 
+### 4.3) What pathways differ for ontology gene sets from R package <code>msigdbr</code>? 
 
 **Table 3** shows the 37 pathways that differ between the overlap and PRDM1, i.e. pathways that are in the overlap but not in PRDM1.
 
@@ -271,6 +329,43 @@ outersect_enrichr_ZNF414 <- column_to_rownames(outersect_enrichr_ZNF414, var = "
 datatable(outersect_enrichr_ZNF414, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 4: Pathways that differ between the overlap and ZNF414', class = 'cell-border stripe')
 ```
 
+### 4.4) What are pathways/genesets shared in the overlap between PRDM1 and ZNF414 for WikiPathways from R package <code>rWikiPathways</code>?
+
+**Table 5** shows the 13 pathways/genesets shared in the overlap between PRDM1 and ZNF414.
+
+```{r}
+datatable(overlaps_enrichr_wikidf, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 5: Pathways/genesets in the overlap between PRDM1 and ZNF414', class = 'cell-border stripe')
+```
+
+### 4.5) What pathways differ for WikiPathways from R package <code>rWikiPathways</code>?
+
+**Table 6** shows the 8 pathways that differ between the overlap and PRDM1, i.e. pathways that are in the overlap but not in PRDM1.
+
+```{r}
+outersect_enrichr_wiki_PRDM1 <- overlaps_enrichr_wikidf %>%
+  rownames_to_column() %>%
+  filter(!rowname %in% rownames(PRDM1_enrichr_wikidf)) %>%
+  arrange(desc(Count)) %>%
+  select(-p.adjust, -Count)
+
+outersect_enrichr_wiki_PRDM1 <- column_to_rownames(outersect_enrichr_wiki_PRDM1, var = "rowname")
+
+datatable(outersect_enrichr_wiki_PRDM1, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 6: Pathways that differ between the overlap and PRDM1', class = 'cell-border stripe')
+```
+
+**Table 7** shows the 1 pathway that differ between the overlap and ZNF414, i.e. pathways that are in the overlap but not in ZNF414.
+
+```{r}
+outersect_enrichr_wiki_ZNF414 <- overlaps_enrichr_wikidf %>%
+  rownames_to_column() %>%
+  filter(!rowname %in% rownames(ZNF414_enrichr_wikidf)) %>%
+  arrange(desc(Count)) %>%
+  select(-p.adjust, -Count)
+
+outersect_enrichr_wiki_ZNF414 <- column_to_rownames(outersect_enrichr_wiki_ZNF414, var = "rowname")
+
+datatable(outersect_enrichr_wiki_ZNF414, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 7: Pathways that differ between the overlap and ZNF414', class = 'cell-border stripe')
+```
 
 ## 5.1) What is your interpretation of these results? 
 
@@ -286,7 +381,9 @@ The genomic element distribution for the overlaps showed that on the exon level,
 
 Overall, our results show that the identified overlaps between `PRDM1` and `ZNF414` belonged to coding regions and more specifically, to TSS, which is an interesting result considering the unknown interactions in regulation chromosome remodelling or gene expression between the two.\
 
-We then have a look at the top 5 pathway after our gene set enrichment analysis for the overlaps between `PRDM1` and `ZNF414`:\
+We then have a look at the top 5 pathway after our gene set enrichment analysis for the overlaps between `PRDM1` and `ZNF414`.\
+
+We start with the identified pathways of ontology gene sets from R package `msigdbr`:\
 
 We can see that two of them belong to RNA processes:
 
@@ -306,13 +403,27 @@ And two belong to ncRNA processes:
 
 This could be an indicator that the identified overlaps between `PRDM1` and `ZNF414` consist of regions with genes involved in transcription and seems to confirm the assumption that `ZNF414` may be involved in transcriptional regulation.\
 
-This assumption could also further be validated by our pathways that differ between the overlaps and `PRDM1` and `ZNF414`.\
+This assumption could also further be validated by our pathways that differ between the overlaps of `PRDM1` and `ZNF414`.\
 
 The different pathways between the overlaps and `PRDM1` seem to mainly relate to chromatin / chromosome / transcriptional processes, e.g. [covalent chromatin modification](https://www.ebi.ac.uk/QuickGO/term/GO:0016569), [regulation of chromosome organization](https://www.ebi.ac.uk/QuickGO/term/GO:0033044) and [ribosome](https://www.ebi.ac.uk/QuickGO/term/GO:0005840).\
 
 The different pathways between the overlaps and `ZNF414` showed partially similar results, like e.g. [regulation of posttranscriptional gene silencing](https://www.ebi.ac.uk/QuickGO/GTerm?id=GO:0060147) but also unrelated terms like e.g. [abnormal uterus morphology](http://www.gsea-msigdb.org/gsea/msigdb/geneset_page.jsp?geneSetName=HP_ABNORMAL_UTERUS_MORPHOLOGY).\
 
 Overall, most of the identified pathways in the overlaps between `PRDM1` and `ZNF414` seem to be related to transcriptional regulation.
+
+Subsequently, we have a look at the identified pathways of WikiPathways from R package `rWikiPathways`:
+
+- [VEGFA-VEGFR2 Pathway](https://reactome.org/content/detail/R-HSA-4420097) is a pathway for signal transduction in the plasma membrane. It is an important pathway in angiogenesis, the formation of new blood vessels from preexisting vasculature (blood vessels or arrangement of blood vessels in an organ).\
+
+- [Ciliary landscape](https://www.gsea-msigdb.org/gsea/msigdb/geneset_page.jsp?geneSetName=WP_CILIARY_LANDSCAPE) is a pathway involving cilia, cellular projections in eucaryotic cells. Ciliary signalling and proteostasis is important for vesicle transport, the cytoskeleton, signalling and ubiquitination.\
+
+- [Adipogenesis](http://www.gsea-msigdb.org/gsea/msigdb/cards/WP_ADIPOGENESIS) is the formation of adipocytes (fat cells) from stem cells. Adipocytes play a vital role in energy homeostasis and process the largest energy reserve as triglycerol in the body of animals.\
+
+- Pathway [Integrated Breast Cancer Pathway](https://pubchem.ncbi.nlm.nih.gov/pathway/WikiPathways:WP1984) incorporates the most important proteins for Breast Cancer. 
+
+- [mRNA processing](http://www.gsea-msigdb.org/gsea/msigdb/geneset_page.jsp?geneSetName=WP_MRNA_PROCESSING) is the only identified top 5 pathway for WikiPathways that is related to our identified pathways of ontology gene sets. This confirms our assumption that genes in the identified peaks between the overlaps of `PRDM1` and `ZNF414` are indeed important for transcriptional regulation.
+
+Overall, the identified pathways of WikiPathways are related to very diverse biological processes. However, even for these pathways we identified one pathway for transcriptional regulation.
 
 ## 5.2) What future directions could you propose to follow up on these findings?
 
