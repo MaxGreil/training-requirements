@@ -23,7 +23,7 @@ suppressMessages(library(DT))
 suppressMessages(library(annotables))
 suppressMessages(library(tidyverse))
 suppressMessages(library(msigdbr))
-suppressMessages(library(rWikiPathways))
+suppressMessages(library(enrichR))
 ```
 
 ## 0) Load data
@@ -159,7 +159,7 @@ plotDistToTSS(list(PRDM1=peakAnno_PRDM1, ZNF414=peakAnno_ZNF414, "PRDM1///ZNF414
 
 ## 4) Assign peaks to genes – then perform pathway enrichment.
 
-For enrichment of the annotated peaks R package `clusterProfiler` function `enricher` was used. For the enrichment we used ontology gene sets of species Homo sapiens from R package `msigdbr`. The found pathway enrichment was then finally filtered to contain only terms with an adjusted p-value greater than or equal 0.05.
+For enrichment of the annotated peaks R package `clusterProfiler` function `enricher` was used. For the enrichment we used ontology gene sets of species Homo sapiens from R package `msigdbr`. Finally, the found pathways were filtered to contain only terms with an adjusted p-value smaller than or equal 0.05.
 
 ```{r}
 # Ensure a deterministic result for enricher
@@ -226,57 +226,64 @@ overlaps_enrichrdf <- overlaps_enrichr %>%
   .@result
 ```
 
-Additionally to the ontology gene sets from R package `msigdbr`, we performed another gene enrichment analysis with pathway content from WikiPathways using R package `rWikiPathways`.
+Additionally to the ontology gene sets from R package `msigdbr`, we performed another gene enrichment analysis. Gene ontology is a very limited pathway annotation that is hard to interpret for many applications. Therefore, we also performed a broad-spectrum [enrichr](https://maayanlab.cloud/Enrichr/) analysis using R package `enrichR`.\
 
-```{r}
-wp2gene <- rWikiPathways::downloadPathwayArchive(organism="Homo sapiens", format = "gmt") %>% readPathwayGMT
-wpid2gene <- wp2gene %>% dplyr::select(wpid,gene) #TERM2GENE
-wpid2name <- wp2gene %>% dplyr::select(wpid,name) #TERM2NAME
+In our enrichr analysis we performed pathway enrichment analysis for all available 172 `enrichR` databases. Finally, the found pathways were filtered to contain only terms with an adjusted p-value smaller than or equal 0.05 and a combined score greater 100.\
+
+The formula for the combined score (c) is `ln(p) * z`. Variable `p` is the p-value computed using Fisher's exact test and variable `z` is the z-score computed to assess the deviation from the expected rank.
+
+```{r, results='hide'}
+setEnrichrSite("Enrichr") # Human genes
+websiteLive <- TRUE
+dbs <- listEnrichrDbs() %>% select(libraryName) %>% unlist
 ```
 
-```{r}
+```{r, results='hide'}
 # Performed pathway enrichment for PRDM1
-PRDM1_enrichr_wiki <- enricher(PRDM1_annot$geneId,
-                  pAdjustMethod = "BH",
-                  qvalueCutoff = 0.05,
-                  TERM2GENE=wpid2gene, 
-                  TERM2NAME=wpid2name)
+enriched <- enrichr(PRDM1_annot$SYMBOL, dbs)
 
-PRDM1_enrichr_wikidf <- PRDM1_enrichr_wiki %>%
-  filter(p.adjust <= 0.05) %>%
-  arrange(desc(Count)) %>%
-  select(Description, p.adjust, geneID, Count) %>%
-  .@result
+# Filtered significant pathways
+enriched <- lapply(enriched, function(x) {
+  x %>%
+    filter(Adjusted.P.value <= 0.05 & Combined.Score > 100) 
+})
+
+PRDM1_enricheddf <- bind_rows(enriched, .id = 'Database') %>%
+  mutate(id=paste0(Database, "-", Term)) %>%
+  select(-Old.P.value, -Old.Adjusted.P.value) %>%
+  arrange(desc(Combined.Score))
 ```
 
-```{r}
+```{r, results='hide'}
 # Performed pathway enrichment for ZNF414
-ZNF414_enrichr_wiki <- enricher(ZNF414_annot$geneId,
-                  pAdjustMethod = "BH",
-                  qvalueCutoff = 0.05,
-                  TERM2GENE=wpid2gene, 
-                  TERM2NAME=wpid2name)
+enriched <- enrichr(ZNF414_annot$SYMBOL, dbs)
 
-ZNF414_enrichr_wikidf <- ZNF414_enrichr_wiki %>%
-  filter(p.adjust <= 0.05) %>%
-  arrange(desc(Count)) %>%
-  select(Description, p.adjust, geneID, Count) %>%
-  .@result
+# Filtered significant pathways
+enriched <- lapply(enriched, function(x) {
+  x %>%
+    filter(Adjusted.P.value <= 0.05 & Combined.Score > 100) 
+})
+
+ZNF414_enricheddf <- bind_rows(enriched, .id = 'Database') %>%
+  mutate(id=paste0(Database, "-", Term)) %>%
+  select(-Old.P.value, -Old.Adjusted.P.value) %>%
+  arrange(desc(Combined.Score))
 ```
 
-```{r}
+```{r, results='hide'}
 # Performed pathway enrichment for overlaps
-overlaps_enrichr_wiki <- enricher(overlaps_annot$geneId,
-                  pAdjustMethod = "BH",
-                  qvalueCutoff = 0.05,
-                  TERM2GENE=wpid2gene, 
-                  TERM2NAME=wpid2name)
+enriched <- enrichr(overlaps_annot$SYMBOL, dbs)
 
-overlaps_enrichr_wikidf <- overlaps_enrichr_wiki %>%
-  filter(p.adjust <= 0.05) %>%
-  arrange(desc(Count)) %>%
-  select(Description, p.adjust, geneID, Count) %>%
-  .@result
+# Filtered significant pathways
+enriched <- lapply(enriched, function(x) {
+  x %>%
+    filter(Adjusted.P.value <= 0.05 & Combined.Score > 100) 
+})
+
+overlaps_enricheddf <- bind_rows(enriched, .id = 'Database') %>%
+  mutate(id=paste0(Database, "-", Term)) %>%
+  select(-Old.P.value, -Old.Adjusted.P.value) %>%
+  arrange(desc(Combined.Score))
 ```
 
 ### 4.1) What are genes shared in the overlap between PRDM1 and ZNF414? 
@@ -329,42 +336,36 @@ outersect_enrichr_ZNF414 <- column_to_rownames(outersect_enrichr_ZNF414, var = "
 datatable(outersect_enrichr_ZNF414, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 4: Pathways that differ between the overlap and ZNF414', class = 'cell-border stripe')
 ```
 
-### 4.4) What are pathways/genesets shared in the overlap between PRDM1 and ZNF414 for WikiPathways from R package <code>rWikiPathways</code>?
+### 4.4) What are pathways/genesets shared in the overlap between PRDM1 and ZNF414 for pathways from R package <code>enrichR</code>?
 
-**Table 5** shows the 13 pathways/genesets shared in the overlap between PRDM1 and ZNF414.
+**Table 5** shows the 461 pathways/genesets shared in the overlap between PRDM1 and ZNF414.
 
 ```{r}
-datatable(overlaps_enrichr_wikidf, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 5: Pathways/genesets in the overlap between PRDM1 and ZNF414', class = 'cell-border stripe')
+datatable(overlaps_enricheddf %>% select(-id), options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 5: Pathways/genesets in the overlap between PRDM1 and ZNF414', class = 'cell-border stripe')
 ```
 
-### 4.5) What pathways differ for WikiPathways from R package <code>rWikiPathways</code>?
+### 4.5) What pathways differ for pathways from R package <code>enrichR</code>?
 
-**Table 6** shows the 8 pathways that differ between the overlap and PRDM1, i.e. pathways that are in the overlap but not in PRDM1.
+**Table 6** shows the 171 pathways that differ between the overlap and PRDM1, i.e. pathways that are in the overlap but not in PRDM1.
 
 ```{r}
-outersect_enrichr_wiki_PRDM1 <- overlaps_enrichr_wikidf %>%
-  rownames_to_column() %>%
-  filter(!rowname %in% rownames(PRDM1_enrichr_wikidf)) %>%
-  arrange(desc(Count)) %>%
-  select(-p.adjust, -Count)
+outersect_enriched_PRDM1 <- overlaps_enricheddf %>%
+  filter(!id %in% PRDM1_enricheddf$id) %>%
+  arrange(desc(Combined.Score)) %>%
+  select(-id)
 
-outersect_enrichr_wiki_PRDM1 <- column_to_rownames(outersect_enrichr_wiki_PRDM1, var = "rowname")
-
-datatable(outersect_enrichr_wiki_PRDM1, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 6: Pathways that differ between the overlap and PRDM1', class = 'cell-border stripe')
+datatable(outersect_enriched_PRDM1, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 6: Pathways that differ between the overlap and PRDM1', class = 'cell-border stripe')
 ```
 
-**Table 7** shows the 1 pathway that differ between the overlap and ZNF414, i.e. pathways that are in the overlap but not in ZNF414.
+**Table 7** shows the 216 pathways that differ between the overlap and ZNF414, i.e. pathways that are in the overlap but not in ZNF414.
 
 ```{r}
-outersect_enrichr_wiki_ZNF414 <- overlaps_enrichr_wikidf %>%
-  rownames_to_column() %>%
-  filter(!rowname %in% rownames(ZNF414_enrichr_wikidf)) %>%
-  arrange(desc(Count)) %>%
-  select(-p.adjust, -Count)
+outersect_enriched_ZNF414 <- overlaps_enricheddf %>%
+  filter(!id %in% ZNF414_enricheddf$id) %>%
+  arrange(desc(Combined.Score)) %>%
+  select(-id)
 
-outersect_enrichr_wiki_ZNF414 <- column_to_rownames(outersect_enrichr_wiki_ZNF414, var = "rowname")
-
-datatable(outersect_enrichr_wiki_ZNF414, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 7: Pathways that differ between the overlap and ZNF414', class = 'cell-border stripe')
+datatable(outersect_enriched_ZNF414, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 7: Pathways that differ between the overlap and ZNF414', class = 'cell-border stripe')
 ```
 
 ## 5.1) What is your interpretation of these results? 
@@ -409,21 +410,24 @@ The different pathways between the overlaps and `PRDM1` seem to mainly relate to
 
 The different pathways between the overlaps and `ZNF414` showed partially similar results, like e.g. [regulation of posttranscriptional gene silencing](https://www.ebi.ac.uk/QuickGO/GTerm?id=GO:0060147) but also unrelated terms like e.g. [abnormal uterus morphology](http://www.gsea-msigdb.org/gsea/msigdb/geneset_page.jsp?geneSetName=HP_ABNORMAL_UTERUS_MORPHOLOGY).\
 
-Overall, most of the identified pathways in the overlaps between `PRDM1` and `ZNF414` seem to be related to transcriptional regulation.
+Overall, most of the identified pathways in the overlaps between `PRDM1` and `ZNF414` seem to be related to transcriptional regulation.\
 
-Subsequently, we have a look at the identified pathways of WikiPathways from R package `rWikiPathways`:
+Subsequently, we have a look at the identified pathways using the broad-spectrum pathway enrichment analysis with `enrichR`:\
 
-- [VEGFA-VEGFR2 Pathway](https://reactome.org/content/detail/R-HSA-4420097) is a pathway for signal transduction in the plasma membrane. It is an important pathway in angiogenesis, the formation of new blood vessels from preexisting vasculature (blood vessels or arrangement of blood vessels in an organ).\
+The top 10 identified significant pathways for the overlaps between `PRDM1` and `ZNF414` show pathways of two different databases: `Enrichr_Submissions_TF-Gene_Coocurrence` and `ENCODE_and_ChEA_Consensus_TFs_from_ChIP-X`.\
 
-- [Ciliary landscape](https://www.gsea-msigdb.org/gsea/msigdb/geneset_page.jsp?geneSetName=WP_CILIARY_LANDSCAPE) is a pathway involving cilia, cellular projections in eucaryotic cells. Ciliary signalling and proteostasis is important for vesicle transport, the cytoskeleton, signalling and ubiquitination.\
+`Enrichr_Submissions_TF-Gene_Coocurrence` contains 1722 terms, a gene coverage of 12486 genes and	299 genes per term. `ENCODE_and_ChEA_Consensus_TFs_from_ChIP-X` contains 104 terms, a gene coverage of	15562 genes and 887 genes per term.\
 
-- [Adipogenesis](http://www.gsea-msigdb.org/gsea/msigdb/cards/WP_ADIPOGENESIS) is the formation of adipocytes (fat cells) from stem cells. Adipocytes play a vital role in energy homeostasis and process the largest energy reserve as triglycerol in the body of animals.\
+**TF** stands for transcription factor. In molecular biology, a TF is a protein that is important for the initiation of RNA polymerase during transcription. **Co-occurence** networks are used to describe potential relationships between entities like in this case TFs. **ENCODE** (ENCyclopedia Of DNA Elements) is a research project aimed at identifying and characterizing all functional elements of the human genome as well as the transcriptome. **ChEA** stands for ChIP Enrichment Analysis. **ChIP-X** describes experiments such as ChIP-chip, ChIP-seq, ChIP-PET and DamID.\
 
-- Pathway [Integrated Breast Cancer Pathway](https://pubchem.ncbi.nlm.nih.gov/pathway/WikiPathways:WP1984) incorporates the most important proteins for Breast Cancer. 
+This seems to confirm the results of the above described pathways of ontology gene set that the overlaps between `PRDM1` and `ZNF414` seem to be related to transcriptional regulation.\
 
-- [mRNA processing](http://www.gsea-msigdb.org/gsea/msigdb/geneset_page.jsp?geneSetName=WP_MRNA_PROCESSING) is the only identified top 5 pathway for WikiPathways that is related to our identified pathways of ontology gene sets. This confirms our assumption that genes in the identified peaks between the overlaps of `PRDM1` and `ZNF414` are indeed important for transcriptional regulation.
+Samples from the top 10 `enrichR` pathways are:
 
-Overall, the identified pathways of WikiPathways are related to very diverse biological processes. However, even for these pathways we identified one pathway for transcriptional regulation.
+- [MNT](https://www.genecards.org/cgi-bin/carddisp.pl?gene=MNT) (MAX Network Transcriptional Repressor) is a Protein Coding gene. Gene Ontology (GO) annotations related to this gene include DNA-binding transcription factor activity and transcription co-activator activity\
+- [E2F6](https://www.ncbi.nlm.nih.gov/gene/1876) encodes a member of a family of transcription factors that play a crucial role in the control of the cell cycle
+
+Overall, our results strongly indicate that the identified overlaps between `PRDM1` and `ZNF414` are related to transcriptional regulation.
 
 ## 5.2) What future directions could you propose to follow up on these findings?
 
