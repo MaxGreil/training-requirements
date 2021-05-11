@@ -20,8 +20,8 @@ suppressMessages(library(TxDb.Hsapiens.UCSC.hg38.knownGene))
 suppressMessages(library(clusterProfiler))
 suppressMessages(library(ChIPseeker))
 suppressMessages(library(DT))
-suppressMessages(library(annotables))
 suppressMessages(library(tidyverse))
+suppressMessages(library(plotly))
 suppressMessages(library(msigdbr))
 suppressMessages(library(enrichR))
 ```
@@ -226,16 +226,79 @@ overlaps_enrichrdf <- overlaps_enrichr %>%
   .@result
 ```
 
-Additionally to the ontology gene sets from R package `msigdbr`, we performed another gene enrichment analysis. Gene ontology is a very limited pathway annotation that is hard to interpret for many applications. Therefore, we also performed a broad-spectrum [enrichr](https://maayanlab.cloud/Enrichr/) analysis using R package `enrichR`.\
+### 4.1) What are genes shared in the overlap between PRDM1 and ZNF414? 
 
-In our enrichr analysis we performed pathway enrichment analysis for all available 172 `enrichR` databases. Finally, the found pathways were filtered to contain only terms with an adjusted p-value smaller than or equal 0.05 and a combined score greater 100.\
+**Table 1** shows the identified 1819 genes shared in the overlap between PRDM1 and ZNF414.
+
+```{r}
+intersect_genes <- overlaps_annot %>%
+  select(geneId, ENSEMBL, SYMBOL, GENENAME) %>%
+  distinct(SYMBOL, .keep_all = TRUE)
+
+datatable(intersect_genes, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 1: Genes in the overlap between PRDM1 and ZNF414', class = 'cell-border stripe')
+```
+
+### 4.2) What are pathways/genesets shared in the overlap between PRDM1 and ZNF414 for ontology gene sets from R package <code>msigdbr</code>? 
+
+**Table 2** shows the 155 pathways/genesets shared in the overlap between PRDM1 and ZNF414.
+
+```{r}
+datatable(overlaps_enrichrdf, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 2: Pathways/genesets in the overlap between PRDM1 and ZNF414', class = 'cell-border stripe')
+```
+
+### 4.3) What pathways differ for ontology gene sets from R package <code>msigdbr</code>? 
+
+**Table 3** shows the 37 pathways that differ between the overlap and PRDM1, i.e. pathways that are in the overlap but not in PRDM1.
+
+```{r}
+outersect_enrichr_PRDM1 <- overlaps_enrichrdf %>%
+  rownames_to_column() %>%
+  filter(!rowname %in% rownames(PRDM1_enrichrdf)) %>%
+  arrange(desc(Count)) %>%
+  select(-p.adjust, -Count)
+
+outersect_enrichr_PRDM1 <- column_to_rownames(outersect_enrichr_PRDM1, var = "rowname")
+
+datatable(outersect_enrichr_PRDM1, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 3: Pathways that differ between the overlap and PRDM1', class = 'cell-border stripe')
+```
+
+**Table 4** shows the 22 pathways that differ between the overlap and ZNF414, i.e. pathways that are in the overlap but not in ZNF414.
+
+```{r}
+outersect_enrichr_ZNF414 <- overlaps_enrichrdf %>%
+  rownames_to_column() %>%
+  filter(!rowname %in% rownames(ZNF414_enrichrdf)) %>%
+  arrange(desc(Count)) %>%
+  select(-p.adjust, -Count)
+
+outersect_enrichr_ZNF414 <- column_to_rownames(outersect_enrichr_ZNF414, var = "rowname")
+
+datatable(outersect_enrichr_ZNF414, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 4: Pathways that differ between the overlap and ZNF414', class = 'cell-border stripe')
+```
+
+### 5) Enrichr
+
+Additionally to the ontology gene sets from R package `msigdbr`, we performed another gene enrichment analysis. Gene ontology is a very limited pathway annotation that is hard to interpret for many applications. Therefore, we also performed a broad-spectrum [enrichr](https://maayanlab.cloud/Enrichr/) pathway analysis.\
+
+```{r}
+# Save found 1819 overlap genes for upload to enrichr
+#write.table(unique(overlaps_annot$SYMBOL),"overlaps_genes.txt",sep="\t",quote=FALSE,row.names=FALSE, col.names=FALSE)
+```
+
+The enrichr results for the 1819 overlap genes can be found here:
+https://maayanlab.cloud/Enrichr/enrich?dataset=a64a28f137dea51300456970b16d9296
+
+Subsequently, we had a closer look at our results for enrichr. Most found pathways belonged to databases related to transcription factors. Therefore, we have a closer look at enrichr database `Enrichr_Submissions_TF-Gene_Coocurrence` providing interesting results.\
+
+The found pathways for this database were filtered to contain only terms with an adjusted p-value smaller than or equal 0.05 and a combined score greater 100.\
 
 The formula for the combined score (c) is `ln(p) * z`. Variable `p` is the p-value computed using Fisher's exact test and variable `z` is the z-score computed to assess the deviation from the expected rank.
 
 ```{r, results='hide'}
 setEnrichrSite("Enrichr") # Human genes
 websiteLive <- TRUE
-dbs <- listEnrichrDbs() %>% select(libraryName) %>% unlist
+# dbs <- listEnrichrDbs() %>% select(libraryName) %>% unlist()
+dbs <- "Enrichr_Submissions_TF-Gene_Coocurrence"
 ```
 
 ```{r, results='hide'}
@@ -286,67 +349,34 @@ overlaps_enricheddf <- bind_rows(enriched, .id = 'Database') %>%
   arrange(desc(Combined.Score))
 ```
 
-### 4.1) What are genes shared in the overlap between PRDM1 and ZNF414? 
-
-**Table 1** shows the identified 1853 genes shared in the overlap between PRDM1 and ZNF414.
+### 5.1) What are pathways/genesets shared in the overlap between PRDM1 and ZNF414 for database <code>Enrichr_Submissions_TF-Gene_Coocurrence</code> from <code>enrichr</code>?
 
 ```{r}
-intersect_genes <- grch38 %>% 
-  filter(entrez %in% overlaps_annot$geneId) %>%
-  select(-chr, -strand, -biotype)
+my.labels <- overlaps_enricheddf$Term
 
-datatable(intersect_genes, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 1: Genes in the overlap between PRDM1 and ZNF414', class = 'cell-border stripe')
+overlaps_enricheddf$Term <- factor(overlaps_enricheddf$Term, levels = overlaps_enricheddf$Term[order(overlaps_enricheddf$Combined.Score)])
+
+viz <- head(overlaps_enricheddf, n=10) %>%
+  ggplot(aes(x=Term, y=Combined.Score, fill=Adjusted.P.value)) + 
+  geom_bar(stat = "identity") + 
+  ggtitle("Top 10 pathways selected database") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  xlab("") +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 30)) + 
+  coord_flip()
+
+ggplotly(viz)
 ```
 
-### 4.2) What are pathways/genesets shared in the overlap between PRDM1 and ZNF414 for ontology gene sets from R package <code>msigdbr</code>? 
-
-**Table 2** shows the 155 pathways/genesets shared in the overlap between PRDM1 and ZNF414.
-
-```{r}
-datatable(overlaps_enrichrdf, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 2: Pathways/genesets in the overlap between PRDM1 and ZNF414', class = 'cell-border stripe')
-```
-
-### 4.3) What pathways differ for ontology gene sets from R package <code>msigdbr</code>? 
-
-**Table 3** shows the 37 pathways that differ between the overlap and PRDM1, i.e. pathways that are in the overlap but not in PRDM1.
-
-```{r}
-outersect_enrichr_PRDM1 <- overlaps_enrichrdf %>%
-  rownames_to_column() %>%
-  filter(!rowname %in% rownames(PRDM1_enrichrdf)) %>%
-  arrange(desc(Count)) %>%
-  select(-p.adjust, -Count)
-
-outersect_enrichr_PRDM1 <- column_to_rownames(outersect_enrichr_PRDM1, var = "rowname")
-
-datatable(outersect_enrichr_PRDM1, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 3: Pathways that differ between the overlap and PRDM1', class = 'cell-border stripe')
-```
-
-**Table 4** shows the 22 pathways that differ between the overlap and ZNF414, i.e. pathways that are in the overlap but not in ZNF414.
-
-```{r}
-outersect_enrichr_ZNF414 <- overlaps_enrichrdf %>%
-  rownames_to_column() %>%
-  filter(!rowname %in% rownames(ZNF414_enrichrdf)) %>%
-  arrange(desc(Count)) %>%
-  select(-p.adjust, -Count)
-
-outersect_enrichr_ZNF414 <- column_to_rownames(outersect_enrichr_ZNF414, var = "rowname")
-
-datatable(outersect_enrichr_ZNF414, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 4: Pathways that differ between the overlap and ZNF414', class = 'cell-border stripe')
-```
-
-### 4.4) What are pathways/genesets shared in the overlap between PRDM1 and ZNF414 for pathways from R package <code>enrichR</code>?
-
-**Table 5** shows the 461 pathways/genesets shared in the overlap between PRDM1 and ZNF414.
+**Table 5** shows the 372 pathways/genesets shared in the overlap between PRDM1 and ZNF414.
 
 ```{r}
 datatable(overlaps_enricheddf %>% select(-id), options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 5: Pathways/genesets in the overlap between PRDM1 and ZNF414', class = 'cell-border stripe')
 ```
 
-### 4.5) What pathways differ for pathways from R package <code>enrichR</code>?
+### 5.2) What pathways differ for database <code>Enrichr_Submissions_TF-Gene_Coocurrence</code> from <code>enrichr</code>?
 
-**Table 6** shows the 171 pathways that differ between the overlap and PRDM1, i.e. pathways that are in the overlap but not in PRDM1.
+**Table 6** shows the 95 pathways that differ between the overlap and PRDM1, i.e. pathways that are in the overlap but not in PRDM1.
 
 ```{r}
 outersect_enriched_PRDM1 <- overlaps_enricheddf %>%
@@ -357,7 +387,7 @@ outersect_enriched_PRDM1 <- overlaps_enricheddf %>%
 datatable(outersect_enriched_PRDM1, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 6: Pathways that differ between the overlap and PRDM1', class = 'cell-border stripe')
 ```
 
-**Table 7** shows the 216 pathways that differ between the overlap and ZNF414, i.e. pathways that are in the overlap but not in ZNF414.
+**Table 7** shows the 143 pathways that differ between the overlap and ZNF414, i.e. pathways that are in the overlap but not in ZNF414.
 
 ```{r}
 outersect_enriched_ZNF414 <- overlaps_enricheddf %>%
@@ -368,7 +398,7 @@ outersect_enriched_ZNF414 <- overlaps_enricheddf %>%
 datatable(outersect_enriched_ZNF414, options=list(scrollX = TRUE, scrollY = TRUE), caption = 'Table 7: Pathways that differ between the overlap and ZNF414', class = 'cell-border stripe')
 ```
 
-## 5.1) What is your interpretation of these results? 
+## 6.1) What is your interpretation of these results? 
 
 The goal of this ChIP-Seq analysis was analyze ChIP-Seq data sets `PRDM1` and `ZNF414`.\
 
@@ -412,24 +442,21 @@ The different pathways between the overlaps and `ZNF414` showed partially simila
 
 Overall, most of the identified pathways in the overlaps between `PRDM1` and `ZNF414` seem to be related to transcriptional regulation.\
 
-Subsequently, we have a look at the identified pathways using the broad-spectrum pathway enrichment analysis with `enrichR`:\
+As stated before, most identified pathways for the overlaps between `PRDM1` and `ZNF414` with broad-spectrum enrichr pathway analysis belonged to databases related to transcription factors, like enrichr databases `Enrichr_Submissions_TF-Gene_Coocurrence`,  `ENCODE_and_ChEA_Consensus_TFs_from_ChIP-X` and `ENCODE TF ChIP-seq 2015`.\
 
-The top 10 identified significant pathways for the overlaps between `PRDM1` and `ZNF414` show pathways of two different databases: `Enrichr_Submissions_TF-Gene_Coocurrence` and `ENCODE_and_ChEA_Consensus_TFs_from_ChIP-X`.\
+`Enrichr_Submissions_TF-Gene_Coocurrence` contains 1722 terms, a gene coverage of 12486 genes and	299 genes per term.\
 
-`Enrichr_Submissions_TF-Gene_Coocurrence` contains 1722 terms, a gene coverage of 12486 genes and	299 genes per term. `ENCODE_and_ChEA_Consensus_TFs_from_ChIP-X` contains 104 terms, a gene coverage of	15562 genes and 887 genes per term.\
+**TF** stands for transcription factor. In molecular biology, a TF is a protein that is important for the initiation of RNA polymerase during transcription. **Co-occurence** networks are used to describe potential relationships between entities like in this case TFs.\
 
-**TF** stands for transcription factor. In molecular biology, a TF is a protein that is important for the initiation of RNA polymerase during transcription. **Co-occurence** networks are used to describe potential relationships between entities like in this case TFs. **ENCODE** (ENCyclopedia Of DNA Elements) is a research project aimed at identifying and characterizing all functional elements of the human genome as well as the transcriptome. **ChEA** stands for ChIP Enrichment Analysis. **ChIP-X** describes experiments such as ChIP-chip, ChIP-seq, ChIP-PET and DamID.\
+Samples from the top 10 `Enrichr_Submissions_TF-Gene_Coocurrence` pathways are:
 
-This seems to confirm the results of the above described pathways of ontology gene set that the overlaps between `PRDM1` and `ZNF414` seem to be related to transcriptional regulation.\
-
-Samples from the top 10 `enrichR` pathways are:
-
-- [MNT](https://www.genecards.org/cgi-bin/carddisp.pl?gene=MNT) (MAX Network Transcriptional Repressor) is a Protein Coding gene. Gene Ontology (GO) annotations related to this gene include DNA-binding transcription factor activity and transcription co-activator activity\
-- [E2F6](https://www.ncbi.nlm.nih.gov/gene/1876) encodes a member of a family of transcription factors that play a crucial role in the control of the cell cycle
+- [MNT](https://www.genecards.org/cgi-bin/carddisp.pl?gene=MNT) (MAX Network Transcriptional Repressor) is a Protein Coding gene. GO annotations related to this gene include DNA-binding transcription factor activity and transcription co-activator activity\
+- [ZNF839](https://www.genecards.org/cgi-bin/carddisp.pl?gene=ZNF839) (Zinc Finger Protein 839) is a Protein Coding gene. Among its related pathways are Gene Expression\
+- [MAFG](https://www.genecards.org/cgi-bin/carddisp.pl?gene=MAFG) (MAF BZIP Transcription Factor G)  is a Protein Coding gene. GO annotations related to this gene include DNA-binding transcription factor activity and protein heterodimerization activity.
 
 Overall, our results strongly indicate that the identified overlaps between `PRDM1` and `ZNF414` are related to transcriptional regulation.
 
-## 5.2) What future directions could you propose to follow up on these findings?
+## 6.2) What future directions could you propose to follow up on these findings?
 
 One direction for future research would be how these overlaps between `PRDM1` and `ZNF414` are involved in transcriptional regulation play a role in B cell development and antibody production. `ZNF414` may be more important for the regulation of `PRDM1` than previously thought.
 
